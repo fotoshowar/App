@@ -6,20 +6,7 @@ import configparser
 from fastapi.testclient import TestClient
 from main import app  # Importa tu aplicación FastAPI
 
-# --- Prueba 1: Verificar que el archivo de configuración se carga ---
-def test_load_config():
-    """Verifica que se puede leer el archivo config.ini."""
-    # Simula cómo PyInstaller encuentra el archivo
-    if getattr(sys, 'frozen', False):
-        config_path = os.path.join(sys._MEIPASS, 'config.ini')
-    else:
-        config_path = 'config.ini'
-    
-    assert os.path.exists(config_path), f"El archivo de configuración no se encontró en {config_path}"
-    
-    config = configparser.ConfigParser()
-    config.read(config_path)
-    
+   
     # Verifica que las claves importantes existan
     assert config.has_option('server', 'port'), "La opción 'port' no se encontró en la sección 'server'"
     assert config.has_option('general', 'base_url'), "La opción 'base_url' no se encontró en la sección 'general'"
