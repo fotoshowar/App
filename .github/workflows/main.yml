@@ -19,7 +19,7 @@ jobs:
 
     steps:
     # Paso 1: Descargar el código del repositorio
-    - uses: actions/checkout@v4 # <-- CAMBIO: Actualizado a v4
+    - uses: actions/checkout@v4
 
     # Paso 2: Configurar Python 3.11
     - name: Set up Python 3.11
@@ -27,11 +27,15 @@ jobs:
       with:
         python-version: '3.11'
 
-    # Paso 3: Instalar dependencias
+    # Paso 3: Instalar dependencias (Versión Corregida)
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        # Instalar PyTorch para CPU primero. Esto evita conflictos de CUDA.
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        # Ahora instalar el resto de las dependencias desde requirements.txt
+        # --ignore-installed evita que intente reinstalar PyTorch con versiones conflictivas
+        pip install -r requirements.txt --ignore-installed torch torchvision torchaudio
         pip install pyinstaller
 
     # Paso 4: Ejecutar PyInstaller
@@ -41,7 +45,7 @@ jobs:
 
     # Paso 5: Subir los artefactos (los ejecutables)
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4 # <-- CAMBIO CLAVE: Actualizado a v4
+      uses: actions/upload-artifact@v4
       with:
         # Nombre del zip que se descargará
         name: face-recognition-app-${{ matrix.os }}
