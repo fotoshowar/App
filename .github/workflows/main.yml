@@ -1,12 +1,13 @@
-# Nombre del flujo de trabajo
+# .github/workflows/build.yml
+
 name: Build Executables
 
-# Se dispara cuando haces push a la rama main
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
-# Tareas a ejecutar
 jobs:
   build:
     strategy:
@@ -14,45 +15,52 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
+    # --- PASO CLAVE: Instalar dependencias del sistema ---
+    - name: Install system dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+
+    - name: Install system dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install cmake
+
+    - name: Install system dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install cmake
+        # Añade cmake al PATH para que pip lo encuentre
+        echo "C:\Program Files\CMake\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    # --- FIN DEL PASO CLAVE ---
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        cache: 'pip'
-        cache-dependency-path: 'requirements.txt'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # Instalar PyTorch para CPU
-        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-        
-        # --- ESTRATEGIA PARA LIBRERÍAS PESADAS ---
-        # Instalamos las librerías que más tardan en compilar POR SEPARADO.
-        # pip buscará automáticamente ruedas pre-compiladas, que son instantáneas.
-        pip install dlib
-        pip install insightface
-        
-        # Ahora instalamos el resto de las dependencias desde nuestro requirements.txt minimalista
         pip install -r requirements.txt
+        # Asegúrate de que PyInstaller esté en los requisitos o instálalo aquí
         pip install pyinstaller
-      shell: bash
 
-    - name: Build with PyInstaller
+    - name: Build executable with PyInstaller
       run: |
         pyinstaller face_recognition.spec --clean
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: face-recognition-app-${{ matrix.os }}
+        name: ${{ matrix.os }}-executable
         path: |
-          dist/face_recognition_app.exe
-          dist/face_recognition_app
-          dist/face_recognition_app.app
-        retention-days: 30
+          dist/
+          # Ajusta la ruta si es necesario (ej. dist/your_app_name.exe)
