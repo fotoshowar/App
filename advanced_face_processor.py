@@ -21,34 +21,46 @@ import bz2
 from pathlib import Path
 
 class AdvancedFaceProcessor:
-    """
-    Procesador de caras avanzado que combina múltiples modelos de estado del arte:
-    1. FaceNet (Google) - Precisión muy alta
-    2. ArcFace/InsightFace - Estado del arte actual
-    3. face_recognition (dlib) - Rápido y confiable
-    4. MTCNN - Detección precisa de caras
-    """
-    
+  import sys
+import os
+
+class AdvancedFaceProcessor:
     def __init__(self, device='cpu'):
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
         print(f"Usando dispositivo: {self.device}")
         
-        # Crear directorio para modelos
-        self.models_dir = Path("models")
-        self.models_dir.mkdir(exist_ok=True)
+        # --- ¡CAMBIO CLAVE PARA PYINSTALLER! ---
+        # Determinar la ruta base de la aplicación, tanto si es un script como un ejecutable.
+        if getattr(sys, 'frozen', False):
+            # Si estamos corriendo como un .exe de PyInstaller
+            base_path = os.path.dirname(sys.executable)
+        else:
+            # Si estamos corriendo el script directamente (para desarrollo)
+            base_path = os.path.dirname(os.path.abspath(__file__))
+        
+        # Crear la ruta a la carpeta 'models' de forma segura
+        self.models_dir = os.path.join(base_path, 'models')
+        
+        # Crear el directorio de modelos si no existe
+        os.makedirs(self.models_dir, exist_ok=True)
+        print(f"Directorio de modelos configurado en: {self.models_dir}")
         
         # Inicializar modelos
         self.init_models()
-        
-    def download_dlib_model(self, model_name: str, url: str) -> str:
-        """Descarga un modelo de dlib si no existe"""
-        model_path = self.models_dir / model_name
-        
-        if model_path.exists():
-            print(f"Modelo {model_name} ya existe, saltando descarga...")
-            return str(model_path)
-        
-        print(f"Descargando {model_name}...")
+
+
+ def download_dlib_model(self, model_name: str, url: str) -> str:
+    """Descarga un modelo de dlib si no existe."""
+    # --- ¡CAMBIO CLAVE! ---
+    # Usar la ruta absoluta que calculamos en __init__
+    model_path = os.path.join(self.models_dir, model_name)
+    
+    if os.path.exists(model_path):
+        print(f"Modelo {model_name} ya existe, saltando descarga...")
+        return str(model_path)
+    
+    print(f"Descargando {model_name}...")
+    # ... el resto del método sigue igual ...
         compressed_path = str(model_path) + ".bz2"
         
         try:
