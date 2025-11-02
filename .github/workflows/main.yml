@@ -55,6 +55,10 @@ jobs:
         # 4. Instalar PyInstaller
         pip install pyinstaller
       shell: bash
+# --- ¡NUEVO PASO DE PRUEBAS! ---
+    - name: Run tests
+      run: |
+        pytest -v
 
     # Paso 4: Ejecutar PyInstaller para crear el ejecutable
     - name: Build with PyInstaller
