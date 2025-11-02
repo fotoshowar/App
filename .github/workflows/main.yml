@@ -1,0 +1,61 @@
+# Nombre del flujo de trabajo
+name: Build Executables
+
+# Se dispara cuando haces push a la rama main
+on:
+  push:
+    branches: [ "main" ]
+
+# Tareas a ejecutar
+jobs:
+  build:
+    # Estrategia: ejecutar esta tarea en múltiples sistemas operativos
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    # Usa la última versión de Ubuntu/Windows/macOS
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    # Paso 1: Descargar el código del repositorio
+    - uses: actions/checkout@v4
+
+    # Paso 2: Configurar Python 3.11 y activar el caché
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip' # <-- ¡CAMBIO CLAVE! Activa el caché de dependencias.
+
+    # Paso 3: Instalar dependencias (Versión Definitiva)
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # 1. Instalar PyTorch para CPU primero
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        # 2. Crear un archivo de requisitos LIMPIO, eliminando paquetes de NVIDIA/CUDA
+        grep -v "nvidia\|cuda" requirements.txt > requirements_clean.txt
+        # 3. Instalar las dependencias desde el archivo limpio
+        pip install -r requirements_clean.txt
+        # 4. Instalar PyInstaller
+        pip install pyinstaller
+
+    # Paso 4: Ejecutar PyInstaller
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller face_recognition.spec --clean
+
+    # Paso 5: Subir los artefactos (los ejecutables)
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        # Nombre del zip que se descargará
+        name: face-recognition-app-${{ matrix.os }}
+        # Ruta a la carpeta o archivo a subir
+        path: |
+          dist/face_recognition_app.exe
+          dist/face_recognition_app
+          dist/face_recognition_app.app
+        # Conserva los artefactos por 30 días
+        retention-days: 30
