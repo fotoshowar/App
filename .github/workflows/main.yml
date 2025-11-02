@@ -19,7 +19,7 @@ jobs:
 
     steps:
     # Paso 1: Descargar el código del repositorio
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4 # <-- CAMBIO: Actualizado a v4
 
     # Paso 2: Configurar Python 3.11
     - name: Set up Python 3.11
@@ -41,7 +41,7 @@ jobs:
 
     # Paso 5: Subir los artefactos (los ejecutables)
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4 # <-- CAMBIO CLAVE: Actualizado a v4
       with:
         # Nombre del zip que se descargará
         name: face-recognition-app-${{ matrix.os }}
