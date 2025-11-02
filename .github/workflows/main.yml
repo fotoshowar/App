@@ -1,66 +1,74 @@
-# .github/workflows/build.yml
-
+# Nombre del flujo de trabajo
 name: Build Executables
 
+# Se dispara cuando haces push a la rama main
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
 
+# Tareas a ejecutar
 jobs:
   build:
+    # Estrategia: ejecutar esta tarea en múltiples sistemas operativos
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
+    # Usa la última versión de Ubuntu/Windows/macOS
     runs-on: ${{ matrix.os }}
+    # Aumenta el tiempo límite a 60 minutos por si acaso
+    timeout-minutes: 60
 
     steps:
-    - name: Checkout code
+    # Paso 1: Descargar el código del repositorio
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    # --- PASO CLAVE: Instalar dependencias del sistema ---
-    - name: Install system dependencies (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake
-
-    - name: Install system dependencies (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew install cmake
-
-    - name: Install system dependencies (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        choco install cmake
-        # Añade cmake al PATH para que pip lo encuentre
-        echo "C:\Program Files\CMake\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-    # --- FIN DEL PASO CLAVE ---
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    # Paso 2: Configurar Python 3.11 y activar el caché de dependencias
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
       with:
         python-version: '3.11'
+        # El caché guardará las dependencias, haciendo las compilaciones futuras mucho más rápidas
+        cache: 'pip'
+        cache-dependency-path: 'requirements.txt'
 
+    # Paso 3: Instalar dependencias (Versión Definitiva y Robusta)
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        # Asegúrate de que PyInstaller esté en los requisitos o instálalo aquí
+        
+        # --- SOLUCIÓN DEFINITIVA: FILTRAR EN TIEMPO REAL ---
+        # 1. Instalar PyTorch para CPU primero (la versión más compatible y sin dependencias de CUDA)
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        
+        # 2. Crear un archivo de requisitos LIMPIO en tiempo de ejecución.
+        #    Esto elimina CUALQUIER paquete con 'nvidia' o 'cuda' en el nombre,
+        #    evitando conflictos en macOS y asegurando la compatibilidad en todos los SO.
+        grep -v "nvidia\|cuda" requirements.txt > requirements_clean.txt
+        
+        # 3. Instalar las dependencias desde el archivo limpio y seguro
+        pip install -r requirements_clean.txt
+        
+        # 4. Instalar PyInstaller
         pip install pyinstaller
+      shell: bash
 
-    - name: Build executable with PyInstaller
+    # Paso 4: Ejecutar PyInstaller para crear los ejecutables
+    - name: Build with PyInstaller
       run: |
         pyinstaller face_recognition.spec --clean
 
+    # Paso 5: Subir los artefactos (los ejecutables) para su descarga
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.os }}-executable
+        # Nombre del zip que se descargará, dinámico según el SO
+        name: face-recognition-app-${{ matrix.os }}
+        # Ruta a la carpeta o archivo a subir. PyInstaller en modo COLLECT crea una carpeta.
         path: |
-          dist/
-          # Ajusta la ruta si es necesario (ej. dist/your_app_name.exe)
+          dist/face_recognition_app.exe
+          dist/face_recognition_app
+          dist/face_recognition_app.app
+        # Conserva los artefactos por 30 días
+        retention-days: 30
