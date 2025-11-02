@@ -19,11 +19,6 @@ import os
 import urllib.request
 import bz2
 from pathlib import Path
-
-class AdvancedFaceProcessor:
-  import sys
-import os
-
 class AdvancedFaceProcessor:
     def __init__(self, device='cpu'):
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
