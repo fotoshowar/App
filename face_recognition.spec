@@ -20,9 +20,7 @@ a = Analysis(
         # Copia la carpeta 'models' (para los modelos de dlib que se descargan) a la raíz.
         ('models', 'models'),
 
-        # Copia el archivo de configuración a la raíz del ejecutable.
-        ('config.ini', '.'),
-
+    
         # --- ¡CORRECCIÓN CLAVE PARA EL ERROR DE MODELOS! ---
         # Le dice a PyInstaller que busque la carpeta 'models' dentro de la librería
         # 'face_recognition_models' y la incluya. Esto resuelve el RuntimeError.
