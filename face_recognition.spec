@@ -2,43 +2,59 @@
 
 block_cipher = None
 
-# Analiza tu script principal y sus dependencias
+# --- ANÁLISIS ---
+# PyInstaller analiza main.py y sigue las importaciones.
+# SÍ, analizará advanced_face_processor.py y sus dependencias como cv2, torch, dlib, etc.
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=[
-        # Añade aquí las carpetas que tu app necesita leer en tiempo de ejecución
-        ('static', 'static'),  # Copia la carpeta 'static' a la carpeta de ejecución
-        ('models', 'models'),  # Si tienes modelos pre-descargados
-        # Si 'uploads' y 'faces' deben existir al iniciar, añádelos también.
+        # --- CRÍTICO PARA advanced_face_processor.py ---
+        # Tu procesador espera una carpeta 'models' para guardar los archivos .dat de dlib.
+        # Esta línea le dice a PyInstaller: "Copia la carpeta 'models' del proyecto
+        # al directorio final de la aplicación".
+        ('models', 'models'),
+
+        # También necesitas las carpetas estáticas y de datos.
+        ('static', 'static'),
+        # Si quieres que las carpetas 'uploads' y 'faces' existan al descomprimir, añádelas aquí.
         # ('uploads', 'uploads'),
         # ('faces', 'faces'),
     ],
     hiddenimports=[
-        # Librerías que PyInstaller podría no encontrar automáticamente
+        # --- LA RED DE SEGURIDAD ---
+        # Esta es una lista de módulos que PyInstaller podría no encontrar automáticamente.
+        # Incluimos aquí las dependencias más problemáticas de advanced_face_processor.py.
+
+        # Dependencias directas de advanced_face_processor.py
+        'cv2',
+        'numpy',
+        'face_recognition',
+        'torch',
+        'torchvision',
+        'dlib',
+        'scipy.spatial.distance',
+        'sklearn.metrics.pairwise',
+        'insightface',
+        'facenet_pytorch',
+        'PIL', # Pillow, usado por torchvision
+
+        # Dependencias de FastAPI/Uvicorn (para que el servidor web funcione)
         'uvicorn.lifespan.on',
         'uvicorn.lifespan.off',
         'uvicorn.protocols.websockets.auto',
         'uvicorn.protocols.http.auto',
         'uvicorn.protocols.websockets.wsproto_impl',
-        'face_recognition_models',
-        'dlib',
-        'torch',
-        'torchvision',
-        'numpy',
-        'cv2',
-        'sklearn',
-        'scipy',
-        'insightface',
-        'facenet_pytorch',
+        'starlette',
+
+        # Dependencias de base de datos y utilidades
         'aiosqlite',
         'cryptography',
         'hkdf',
         'chromadb',
         'httpx',
         'pydantic',
-        'PIL', # Pillow, que usa torchvision
     ],
     hookspath=[],
     hooksconfig={},
@@ -50,28 +66,41 @@ a = Analysis(
     noarchive=False,
 )
 
-# Crea el archivo PYZ (Python Zip)
+# --- CREACIÓN DEL EJECUTABLE ---
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Crea el ejecutable
+# --- ¡CAMBIO CLAVE! ---
+# Dividimos la creación en dos partes: EXE y COLLECT.
+
+# 1. Creamos el pequeño archivo ejecutable principal
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
-    name='face_recognition_app', # Nombre del ejecutable final
+    [], # <-- OJO: Aquí quitamos a.binaries, a.zipfiles y a.datas
+    exclude_binaries=True, # <-- ¡LÍNEA CLAVE! No incluye las librerías pesadas aquí.
+    name='face_recognition_app',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True, # Comprime el ejecutable (puede dar problemas en algunos antivirus, puedes ponerlo en False)
+    upx=True, # UPX funciona bien en este modo
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True, # Muestra la consola para ver los logs. Pon en False para una app de ventana.
+    console=True, # ¡Mantén en True para ver los logs y errores al depurar!
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+# 2. Creamos la carpeta final (COLLECT) que contiene todo
+coll = COLLECT(
+    exe, # El ejecutable que acabamos de crear
+    a.binaries, # Todas las librerías (.dll, .so, .dylib)
+    a.zipfiles, # Archivos comprimidos
+    a.datas, # Las carpetas 'static' y 'models'
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='face_recognition_app', # Nombre de la carpeta final
 )
