@@ -16,13 +16,27 @@ import insightface
 from typing import List, Dict, Tuple, Optional
 import logging
 import os
+import sys
 import urllib.request
 import bz2
 from pathlib import Path
+
+# --- Configuración del logger ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 class AdvancedFaceProcessor:
+    """
+    Procesador de caras avanzado que combina múltiples modelos de estado del arte:
+    1. FaceNet (Google) - Precisión muy alta
+    2. ArcFace/InsightFace - Estado del arte actual
+    3. face_recognition (dlib) - Rápido y confiable
+    4. MTCNN - Detección precisa de caras
+    """
+    
     def __init__(self, device='cpu'):
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
-        print(f"Usando dispositivo: {self.device}")
+        logger.info(f"Usando dispositivo: {self.device}")
         
         # --- ¡CAMBIO CLAVE PARA PYINSTALLER! ---
         # Determinar la ruta base de la aplicación, tanto si es un script como un ejecutable.
@@ -38,24 +52,22 @@ class AdvancedFaceProcessor:
         
         # Crear el directorio de modelos si no existe
         os.makedirs(self.models_dir, exist_ok=True)
-        print(f"Directorio de modelos configurado en: {self.models_dir}")
+        logger.info(f"Directorio de modelos configurado en: {self.models_dir}")
         
         # Inicializar modelos
         self.init_models()
 
-
- def download_dlib_model(self, model_name: str, url: str) -> str:
-    """Descarga un modelo de dlib si no existe."""
-    # --- ¡CAMBIO CLAVE! ---
-    # Usar la ruta absoluta que calculamos en __init__
-    model_path = os.path.join(self.models_dir, model_name)
-    
-    if os.path.exists(model_path):
-        print(f"Modelo {model_name} ya existe, saltando descarga...")
-        return str(model_path)
-    
-    print(f"Descargando {model_name}...")
-    # ... el resto del método sigue igual ...
+    def download_dlib_model(self, model_name: str, url: str) -> str:
+        """Descarga un modelo de dlib si no existe."""
+        # --- ¡CAMBIO CLAVE! ---
+        # Usar la ruta absoluta que calculamos en __init__
+        model_path = os.path.join(self.models_dir, model_name)
+        
+        if os.path.exists(model_path):
+            logger.info(f"Modelo {model_name} ya existe, saltando descarga...")
+            return str(model_path)
+        
+        logger.info(f"Descargando {model_name}...")
         compressed_path = str(model_path) + ".bz2"
         
         try:
@@ -69,10 +81,10 @@ class AdvancedFaceProcessor:
             
             # Eliminar archivo comprimido
             os.remove(compressed_path)
-            print(f"Modelo {model_name} descargado y descomprimido exitosamente")
+            logger.info(f"Modelo {model_name} descargado y descomprimido exitosamente")
             
         except Exception as e:
-            print(f"Error descargando {model_name}: {e}")
+            logger.error(f"Error descargando {model_name}: {e}")
             if os.path.exists(compressed_path):
                 os.remove(compressed_path)
             raise
@@ -83,7 +95,7 @@ class AdvancedFaceProcessor:
         """Inicializa todos los modelos de reconocimiento facial"""
         try:
             # 1. MTCNN para detección precisa de caras
-            print("Cargando MTCNN...")
+            logger.info("Cargando MTCNN...")
             self.mtcnn = MTCNN(
                 image_size=160,
                 margin=0,
@@ -95,7 +107,7 @@ class AdvancedFaceProcessor:
             )
             
             # 2. FaceNet (InceptionResnetV1) pre-entrenado
-            print("Cargando FaceNet...")
+            logger.info("Cargando FaceNet...")
             self.facenet = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
             
             # 3. Transformaciones para FaceNet
@@ -107,18 +119,18 @@ class AdvancedFaceProcessor:
             ])
             
             # 4. InsightFace (ArcFace)
-            print("Cargando InsightFace...")
+            logger.info("Cargando InsightFace...")
             try:
                 self.insightface_app = insightface.app.FaceAnalysis()
                 self.insightface_app.prepare(ctx_id=0 if torch.cuda.is_available() else -1, 
                                            det_size=(640, 640))
                 self.use_insightface = True
             except Exception as e:
-                print(f"InsightFace no disponible: {e}")
+                logger.warning(f"InsightFace no disponible: {e}")
                 self.use_insightface = False
             
             # 5. dlib face recognition
-            print("Inicializando dlib...")
+            logger.info("Inicializando dlib...")
             try:
                 self.dlib_detector = dlib.get_frontal_face_detector()
                 
@@ -132,16 +144,16 @@ class AdvancedFaceProcessor:
                 self.face_encoder = dlib.face_recognition_model_v1(face_rec_path)
                 
                 self.use_dlib = True
-                print("dlib inicializado correctamente")
+                logger.info("dlib inicializado correctamente")
                 
             except Exception as e:
-                print(f"Error inicializando dlib: {e}")
+                logger.error(f"Error inicializando dlib: {e}")
                 self.use_dlib = False
             
-            print("Todos los modelos disponibles cargados exitosamente!")
+            logger.info("Todos los modelos disponibles cargados exitosamente!")
             
         except Exception as e:
-            print(f"Error inicializando modelos: {e}")
+            logger.error(f"Error inicializando modelos: {e}")
             raise
     
     def detect_faces_mtcnn(self, image: np.ndarray) -> List[Dict]:
@@ -194,7 +206,7 @@ class AdvancedFaceProcessor:
             return embedding
             
         except Exception as e:
-            print(f"Error en FaceNet embedding: {e}")
+            logger.error(f"Error en FaceNet embedding: {e}")
             return np.zeros(512)
     
     def generate_insightface_embedding(self, image: np.ndarray) -> Optional[np.ndarray]:
@@ -219,7 +231,7 @@ class AdvancedFaceProcessor:
             return None
             
         except Exception as e:
-            print(f"Error en InsightFace embedding: {e}")
+            logger.error(f"Error en InsightFace embedding: {e}")
             return None
     
     def generate_dlib_embedding(self, image: np.ndarray, face_bbox: Dict) -> Optional[np.ndarray]:
@@ -258,7 +270,7 @@ class AdvancedFaceProcessor:
             return embedding
             
         except Exception as e:
-            print(f"Error en dlib embedding: {e}")
+            logger.error(f"Error en dlib embedding: {e}")
             return None
     
     def generate_face_recognition_embedding(self, image: np.ndarray) -> Optional[np.ndarray]:
@@ -279,7 +291,7 @@ class AdvancedFaceProcessor:
             return None
             
         except Exception as e:
-            print(f"Error en face_recognition embedding: {e}")
+            logger.error(f"Error en face_recognition embedding: {e}")
             return None
     
     def detect_faces_advanced(self, image: np.ndarray) -> List[Dict]:
@@ -317,9 +329,9 @@ class AdvancedFaceProcessor:
                         'method': 'face_recognition'
                     })
         except Exception as e:
-            print(f"Error en face_recognition detection: {e}")
+            logger.error(f"Error en face_recognition detection: {e}")
         
-        print(f"Detectadas {len(all_faces)} caras usando métodos avanzados")
+        logger.info(f"Detectadas {len(all_faces)} caras usando métodos avanzados")
         return all_faces
     
     def generate_multi_model_embedding(self, face_data: Dict, original_image: np.ndarray) -> Dict:
@@ -376,14 +388,14 @@ class AdvancedFaceProcessor:
                 weighted_similarity += similarity * weight
                 total_weight += weight
                 
-                print(f"Similitud {model_name}: {similarity:.3f}")
+                logger.info(f"Similitud {model_name}: {similarity:.3f}")
         
         if total_weight > 0:
             final_similarity = weighted_similarity / total_weight
         else:
             final_similarity = 0.0
         
-        print(f"Similitud final ponderada: {final_similarity:.3f}")
+        logger.info(f"Similitud final ponderada: {final_similarity:.3f}")
         return final_similarity
     
     def calculate_bbox_overlap(self, bbox1: Dict, bbox2: Dict) -> float:
