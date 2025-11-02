@@ -21,21 +21,24 @@ jobs:
     # Paso 1: Descargar el código del repositorio
     - uses: actions/checkout@v4
 
-    # Paso 2: Configurar Python 3.11
+    # Paso 2: Configurar Python 3.11 y activar el caché
     - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
+        cache: 'pip' # <-- ¡CAMBIO CLAVE! Activa el caché de dependencias.
 
-    # Paso 3: Instalar dependencias (Versión Corregida)
+    # Paso 3: Instalar dependencias (Versión Definitiva)
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # Instalar PyTorch para CPU primero. Esto evita conflictos de CUDA.
+        # 1. Instalar PyTorch para CPU primero
         pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-        # Ahora instalar el resto de las dependencias desde requirements.txt
-        # --ignore-installed evita que intente reinstalar PyTorch con versiones conflictivas
-        pip install -r requirements.txt --ignore-installed torch torchvision torchaudio
+        # 2. Crear un archivo de requisitos LIMPIO, eliminando paquetes de NVIDIA/CUDA
+        grep -v "nvidia\|cuda" requirements.txt > requirements_clean.txt
+        # 3. Instalar las dependencias desde el archivo limpio
+        pip install -r requirements_clean.txt
+        # 4. Instalar PyInstaller
         pip install pyinstaller
 
     # Paso 4: Ejecutar PyInstaller
