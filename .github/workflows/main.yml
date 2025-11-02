@@ -60,3 +60,14 @@ jobs:
     - name: Build with PyInstaller
       run: |
         pyinstaller face_recognition.spec --clean
+    # Paso 5: Subir el artefacto (la carpeta completa) para su descarga
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        # Nombre del zip que se descargará
+        name: face-recognition-app-windows
+        # --- ¡CAMBIO CLAVE! ---
+        # Le decimos que suba la CARPETA 'face_recognition_app' que está dentro de 'dist'
+        path: dist/face_recognition_app
+        # Conserva los artefactos por 30 días
+        retention-days: 30
