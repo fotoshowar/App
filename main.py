@@ -37,15 +37,7 @@ import hkdf
 import chromadb
 from chromadb.config import Settings
 
-if getattr(sys, 'frozen', False):
-    # Si estamos corriendo como un ejecutable de PyInstaller
-    application_path = os.path.dirname(sys.executable)
-    internal_path = os.path.join(application_path, '_internal')
-    if internal_path not in sys.path:
-        sys.path.insert(0, internal_path)
-else:
-    # Si estamos corriendo el script directamente (para desarrollo)
-    application_path = os.path.dirname(os.path.abspath(__file__))
+
 # --- CONFIGURACIÓN ---
 BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com"
 UPLOAD_DIR = Path("uploads")
