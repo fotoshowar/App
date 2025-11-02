@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>fotoshow | La plataforma de IA para las fotos y videos de tus eventos</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Reset y estilos base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Variables CSS para mejor mantenimiento */
+        :root {
+            --primary-dark: #1a0a2e;
+            --secondary-dark: #2d1b4e;
+            --primary-blue: #2563eb;
+            --primary-light-blue: #3b82f6;
+            --primary-purple: #8b5cf6;
+            --text-light: #d1d5db;
+            --text-muted: #9ca3af;
+            --white: #ffffff;
+        }
+
+        /* Navbar */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background-color: var(--primary-dark);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .navbar-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-light-blue) 0%, var(--primary-purple) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover .logo-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .logo-text {
+            color: var(--white);
+            font-weight: 700;
+            font-size: 1.125rem;
+            text-decoration: none;
+        }
+
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .nav-link {
+            color: var(--text-light);
+            text-decoration: none;
+            transition: color 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            color: var(--white);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-blue);
+            color: var(--white);
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 1rem;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .mobile-menu-button {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--white);
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary-dark) 50%, var(--primary-dark) 100%);
+            position: relative;
+            overflow: hidden;
+            padding-top: 8rem;
+            padding-bottom: 5rem;
+        }
+
+        .hero-bg {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+        }
+
+        .hero-blob-1 {
+            position: absolute;
+            top: 5rem;
+            left: 2.5rem;
+            width: 24rem;
+            height: 24rem;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 50%;
+            filter: blur(60px);
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        .hero-blob-2 {
+            position: absolute;
+            bottom: 5rem;
+            right: 2.5rem;
+            width: 24rem;
+            height: 24rem;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 50%;
+            filter: blur(60px);
+            animation: pulse 3s ease-in-out infinite;
+            animation-delay: 1s;
+        }
+
+        .hero-content {
+            position: relative;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            text-align: center;
+        }
+
+        .trustpilot-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 2rem;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        .trustpilot-text {
+            color: var(--primary-light-blue);
+            font-weight: 600;
+        }
+
+        .stars {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .star {
+            color: #fbbf24;
+            font-size: 1rem;
+        }
+
+        /* Hero Title con animación corregida */
+        .hero-title {
+            font-size: clamp(2.5rem, 8vw, 4rem);
+            font-weight: 900;
+            color: var(--white);
+            line-height: 1.2;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .text-line {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .changing-word {
+            background: linear-gradient(135deg, var(--primary-light-blue) 0%, var(--primary-purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: inline-block;
+            margin-left: 8px;
+            position: relative;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 3px;
+            height: 1em;
+            background: var(--primary-light-blue);
+            margin-left: 2px;
+            animation: blink 1s infinite;
+            vertical-align: text-bottom;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Animación de balanceo */
+        @keyframes balance {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(5deg); }
+            50% { transform: rotate(-5deg); }
+            75% { transform: rotate(3deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        .balancing {
+            animation: balance 0.5s ease-in-out;
+        }
+
+        .hero-description {
+            max-width: 48rem;
+            margin: 0 auto 2.5rem;
+            animation: slideUp 0.8s ease-out 0.2s backwards;
+        }
+
+        .hero-description p {
+            font-size: 1.25rem;
+            color: var(--text-light);
+            margin-bottom: 1rem;
+        }
+
+        .hero-description .bold {
+            color: var(--white);
+            font-weight: 700;
+        }
+
+        .hero-cta {
+            animation: slideUp 0.8s ease-out 0.4s backwards;
+        }
+
+        .hero-cta .btn-primary {
+            font-size: 1.125rem;
+            padding: 1.5rem 3rem;
+        }
+
+        .wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+
+        /* Logo Carousel */
+        .logo-carousel {
+            background: var(--white);
+            padding: 4rem 0;
+            overflow: hidden;
+        }
+
+        .carousel-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        .carousel-track {
+            display: flex;
+            gap: 3rem;
+            animation: scroll 30s linear infinite;
+        }
+
+        .carousel-track:hover {
+            animation-play-state: paused;
+        }
+
+        .logo-item {
+            flex-shrink: 0;
+            width: 160px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: grayscale(100%);
+            transition: all 0.3s ease;
+        }
+
+        .logo-item:hover {
+            filter: grayscale(0%);
+            transform: scale(1.1);
+        }
+
+        .logo-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        /* How It Works */
+        .how-it-works {
+            background: var(--white);
+            padding: 5rem 0;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 3rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 4rem;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 3rem;
+            margin-top: 4rem;
+        }
+
+        .step-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.5s ease;
+        }
+
+        .step-card:hover {
+            transform: translateY(-0.5rem);
+        }
+
+        .phone-mockup {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .phone-frame {
+            width: 256px;
+            height: 520px;
+            background: var(--white);
+            border-radius: 1.5rem;
+            overflow: hidden;
+            border: 8px solid #111827;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .phone-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .step-badge {
+            position: absolute;
+            bottom: -3rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border: 4px solid var(--white);
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--white);
+            transition: transform 0.3s ease;
+        }
+
+        .step-card:hover .step-badge {
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        .step-badge-blue {
+            background: linear-gradient(135deg, var(--primary-light-blue) 0%, var(--primary-blue) 100%);
+        }
+
+        .step-badge-purple {
+            background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+        }
+
+        .step-badge-teal {
+            background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+        }
+
+        .step-description {
+            text-align: center;
+            margin-top: 2rem;
+            padding: 0 1rem;
+        }
+
+        .step-description p {
+            font-size: 1.125rem;
+            color: #4b5563;
+            line-height: 1.75;
+        }
+
+        .step-description .bold {
+            font-weight: 700;
+            color: #111827;
+        }
+
+        /* Event Types */
+        .event-types {
+            background: #f9fafb;
+            padding: 5rem 0;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            font-size: 1.25rem;
+            color: #6b7280;
+            margin-top: 1rem;
+        }
+
+        .event-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+
+        .event-card {
+            position: relative;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            min-height: 400px;
+            transition: all 0.5s ease;
+        }
+
+        .event-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .event-card-bg-purple {
+            background: linear-gradient(135deg, #9333ea 0%, #7c3aed 50%, var(--primary-light-blue) 100%);
+        }
+
+        .event-card-bg-blue {
+            background: linear-gradient(135deg, var(--primary-light-blue) 0%, var(--primary-blue) 50%, #0ea5e9 100%);
+        }
+
+        .event-card-image {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 50%;
+            opacity: 0.2;
+        }
+
+        .event-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .event-card-content {
+            position: relative;
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            z-index: 10;
+        }
+
+        .event-card-label {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 0.5rem;
+        }
+
+        .event-card-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 2rem;
+            max-width: 28rem;
+        }
+
+        .event-card-buttons {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .btn-secondary {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: transparent;
+            border: 2px solid var(--white);
+            color: var(--white);
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        /* Stats Section */
+        .stats-section {
+            background: linear-gradient(135deg, var(--primary-light-blue) 0%, var(--primary-blue) 50%, #0ea5e9 100%);
+            padding: 5rem 0;
+        }
+
+        .stats-section .section-title {
+            color: var(--white);
+        }
+
+        .stats-section .section-subtitle {
+            color: var(--white);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .stat-item {
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: scale(1.1);
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--white);
+            line-height: 1.4;
+        }
+
+        .btn-white {
+            background: var(--white);
+            color: #111827;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .btn-white:hover {
+            background: #f3f4f6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Testimonials */
+        .testimonials {
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            padding: 5rem 0;
+        }
+
+        .testimonial-container {
+            position: relative;
+            max-width: 1024px;
+            margin: 0 auto;
+        }
+
+        .testimonial-card {
+            background: var(--white);
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            padding: 3rem;
+        }
+
+        .testimonial-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .company-logo {
+            display: flex;
+            justify-content: center;
+        }
+
+        .company-logo img {
+            height: 64px;
+            object-fit: contain;
+        }
+
+        .testimonial-text {
+            font-size: 1.25rem;
+            color: #374151;
+            line-height: 1.75;
+            margin-bottom: 1.5rem;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .author-image {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .author-name {
+            font-weight: 700;
+            color: #111827;
+            font-size: 1.125rem;
+        }
+
+        .author-position {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        .testimonial-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--white);
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .testimonial-nav:hover {
+            background: #f3f4f6;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .testimonial-nav-prev {
+            left: -1rem;
+        }
+
+        .testimonial-nav-next {
+            right: -1rem;
+        }
+
+        .testimonial-dots {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #d1d5db;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .dot.active {
+            width: 32px;
+            border-radius: 6px;
+            background: var(--primary-blue);
+        }
+
+        /* Final CTA */
+        .final-cta {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary-dark) 50%, var(--primary-dark) 100%);
+            padding: 6rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary-light-blue) 0%, var(--primary-purple) 100%);
+            color: var(--white);
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1.5rem;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1.5rem;
+        }
+
+        .cta-title {
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 1.5rem;
+        }
+
+        .cta-description {
+            font-size: 1.25rem;
+            color: var(--text-light);
+            margin-bottom: 2.5rem;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--primary-dark);
+            color: var(--white);
+            padding: 4rem 0;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .footer-description {
+            color: var(--text-muted);
+            margin: 1rem 0;
+            max-width: 28rem;
+        }
+
+        .social-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .social-link {
+            color: var(--text-muted);
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .social-link:hover {
+            color: var(--white);
+            transform: scale(1.1);
+        }
+
+        .footer-heading {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-link:hover {
+            color: var(--white);
+        }
+
+        .footer-bottom {
+            border-top: 1px solid #374151;
+            padding-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copyright {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .footer-bottom-links {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.6;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+
+        @keyframes scroll {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(-50%);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-menu {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--primary-dark);
+                flex-direction: column;
+                padding: 1rem;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+
+            .nav-menu.active {
+                display: flex;
+            }
+
+            .mobile-menu-button {
+                display: block;
+            }
+
+            .hero-title {
+                font-size: 2.5rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .event-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .testimonial-content {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .cta-title {
+                font-size: 2rem;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .event-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-title {
+                font-size: 2rem;
+            }
+
+            .steps-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="#" class="logo">
+                <div class="logo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                </div>
+                <span class="logo-text">fotoshow.ar</span>
+            </a>
+            
+            <div class="nav-menu" id="navMenu">
+                <a href="#solutions" class="nav-link">Soluciones</a>
+                <a href="#about" class="nav-link">Acerca de</a>
+                <a href="#" class="btn-primary">Solicitar demo</a>
+            </div>
+
+            <button class="mobile-menu-button" id="mobileMenuBtn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-bg">
+            <div class="hero-blob-1"></div>
+            <div class="hero-blob-2"></div>
+        </div>
+        
+        <div class="hero-content">
+            <div class="trustpilot-badge">
+                <span class="trustpilot-text">Trustpilot</span>
+                <div class="stars">
+                    <span class="star">★</span>
+                    <span class="star">★</span>
+                    <span class="star">★</span>
+                    <span class="star">★</span>
+                    <span class="star">★</span>
+                </div>
+                <span style="color: white; font-weight: 500;">4.3</span>
+            </div>
+
+            <h1 class="hero-title">
+                <span class="text-line">Desata el poder de las fotos</span>
+                <span class="text-line">
+                    para tu 
+                    <span class="changing-word" id="changingWord">evento</span>
+                    <span class="cursor"></span>
+                </span>
+            </h1>
+
+            <div class="hero-description">
+                <p>Para tus eventos elige fotoshow.ar, la plataforma de IA que</p>
+                <p class="bold">¡entrega sus fotos a cada participante en tiempo real!</p>
+                <p style="color: #9ca3af;">Descubre todas las soluciones para hacer tus eventos inolvidables y aumentar los ingresos.</p>
+            </div>
+
+            <div class="hero-cta">
+                <a href="#" class="btn-primary">Solicitar demo</a>
+            </div>
+        </div>
+
+        <svg class="wave" viewBox="0 0 1440 120" preserveAspectRatio="none">
+            <path fill="#ffffff" d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z"></path>
+        </svg>
+    </section>
+
+    <!-- Logo Carousel -->
+    <section class="logo-carousel">
+        <div class="carousel-container">
+            <div class="carousel-track" id="logoCarousel">
+                <!-- Logos will be duplicated via JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-it-works">
+        <div class="container">
+            <h2 class="section-title">Imagina adaptado a tu marca</h2>
+            
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="phone-mockup">
+                        <div class="phone-frame">
+                            <img src="https://external-extends-authorization-sphere.trycloudflare.com/api/image/photo/5dcb2db2-985d-4584-8768-82e930ad96b8" alt="Paso 1">
+                        </div>
+                        <div class="step-badge step-badge-blue">1</div>
+                    </div>
+                    <div class="step-description">
+                        <p>El participante <span class="bold">toma una selfie</span> para acceder a su álbum privado</p>
+                    </div>
+                </div>
+
+                <div class="step-card">
+                    <div class="phone-mockup">
+                        <div class="phone-frame">
+                            <img src="https://external-extends-authorization-sphere.trycloudflare.com/api/image/photo/66b0c879-952a-46e1-bba4-5f06606a7440" alt="Paso 2">
+                        </div>
+                        <div class="step-badge step-badge-purple">2</div>
+                    </div>
+                    <div class="step-description">
+                        <p><span class="bold">Mira sus fotos personales y contenido promocional</span> del evento</p>
+                    </div>
+                </div>
+
+                <div class="step-card">
+                    <div class="phone-mockup">
+                        <div class="phone-frame">
+                            <img src="https://external-extends-authorization-sphere.trycloudflare.com/api/image/photo/a49268ab-f080-4784-958a-cf6c2f937195" alt="Paso 3">
+                        </div>
+                        <div class="step-badge step-badge-teal">3</div>
+                    </div>
+                    <div class="step-description">
+                        <p><span class="bold">Descarga y comparte</span> sus fotos en redes sociales</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Event Types -->
+    <section class="event-types">
+        <div class="container">
+            <h2 class="section-title">Perfecto para cualquier evento</h2>
+            <p class="section-subtitle">Desde reuniones íntimas hasta eventos masivos con 100K asistentes.</p>
+            <p class="section-subtitle">Las soluciones son infinitas.</p>
+
+            <div class="event-cards">
+                <div class="event-card event-card-bg-purple">
+                    <div class="event-card-image">
+                        <img src="https://images.unsplash.com/photo-1542038784456-1ea8e935640e?w=400&h=600&fit=crop" alt="Fotógrafo">
+                    </div>
+                    <div class="event-card-content">
+                        <div>
+                            <div class="event-card-label">Para fotógrafos</div>
+                            <h3 class="event-card-title">Reduce costos, tiempos de producción y aumenta tus ventas</h3>
+                        </div>
+                        <div class="event-card-buttons">
+                            <a href="#" class="btn-secondary">
+                                <span>Deportes de resistencia</span>
+                                <span>→</span>
+                            </a>
+                            <a href="#" class="btn-secondary">
+                                <span>Hospitalidad</span>
+                                <span>→</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="event-card event-card-bg-blue">
+                    <div class="event-card-image">
+                        <img src="https://images.unsplash.com/photo-1573164713988-8665fc963095?w=400&h=600&fit=crop" alt="Empresa">
+                    </div>
+                    <div class="event-card-content">
+                        <div>
+                            <div class="event-card-label">Para EMPRESAS</div>
+                            <h3 class="event-card-title">Revoluciona la experiencia de los invitados y aumenta tu ROI</h3>
+                        </div>
+                        <div class="event-card-buttons">
+                            <a href="#" class="btn-secondary">
+                                <span>Corporativo y MICE</span>
+                                <span>→</span>
+                            </a>
+                            <a href="#" class="btn-secondary">
+                                <span>Experiencia de fans</span>
+                                <span>→</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="container" style="text-align: center;">
+            <h2 class="section-title">1 mil millones de fotos personales</h2>
+            <p class="section-subtitle">Disponibles para descargar y compartir</p>
+
+            <h3 class="section-title" style="margin-top: 4rem;">Por qué las empresas confían en fotoshow.ar</h3>
+
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">1M+</div>
+                    <div class="stat-label">Usuarios en todo el mundo</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">330+</div>
+                    <div class="stat-label">Clientes B2B</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">1M+</div>
+                    <div class="stat-label">Fotos entregadas</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">#1</div>
+                    <div class="stat-label">Plataforma de entrega de fotos</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">41+</div>
+                    <div class="stat-label">Países</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">82%</div>
+                    <div class="stat-label">Cumplimiento de privacidad</div>
+                </div>
+            </div>
+
+            <a href="#" class="btn-white" style="margin-top: 3rem;">Contáctanos</a>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="testimonials">
+        <div class="container">
+            <h2 class="section-title">Amado por los mejores equipos</h2>
+
+            <div class="testimonial-container">
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <div class="company-logo">
+                            <img id="testimonialLogo" src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/BMW.svg/200px-BMW.svg.png" alt="Empresa">
+                        </div>
+                        <div>
+                            <p class="testimonial-text" id="testimonialText">
+                                "Hasta la fecha hemos estado mayormente ciegos sobre el compromiso de nuestros invitados durante eventos en vivo, aprovechando fotoshow.ar ahora desbloqueamos un nuevo conjunto de información que usaremos para evaluar el compromiso de nuestros invitados y obtener un mejor retorno de nuestro gasto."
+                            </p>
+                            <div class="testimonial-author">
+                                <img id="testimonialImage" src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop" alt="Autor" class="author-image">
+                                <div>
+                                    <div class="author-name" id="testimonialAuthor">Lorenzo Boglione</div>
+                                    <div class="author-position" id="testimonialPosition">Vicepresidente Senior, Basic Net SPA K-Way, Sebago, Kappa</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="testimonial-nav testimonial-nav-prev" id="prevTestimonial">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+                <button class="testimonial-nav testimonial-nav-next" id="nextTestimonial">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+
+                <div class="testimonial-dots" id="testimonialDots"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="final-cta">
+        <div class="hero-bg">
+            <div class="hero-blob-1"></div>
+            <div class="hero-blob-2"></div>
+        </div>
+        <div class="container" style="text-align: center; position: relative;">
+            <span class="cta-badge">PRUEBA fothosow.AR</span>
+            <h2 class="cta-title">Lleva tu próximo evento a nuevas alturas.</h2>
+            <p class="cta-description">Descubre cómo fotoshow.ar puede transformar la experiencia de tus eventos</p>
+            <a href="#" class="btn-primary" style="padding: 1.5rem 3rem; font-size: 1.125rem;">Solicitar demo</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <a href="#" class="logo">
+                        <div class="logo-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                <circle cx="12" cy="13" r="4"></circle>
+                            </svg>
+                        </div>
+                        <span class="logo-text">fotoshow.ar</span>
+                    </a>
+                    <p class="footer-description">
+                        La plataforma de IA que entrega fotos a cada participante en tiempo real, haciendo tus eventos inolvidables.
+                    </p>
+                    <div class="social-links">
+                        <a href="#" class="social-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                            </svg>
+                        </a>
+                        <a href="#" class="social-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                            </svg>
+                        </a>
+                        <a href="#" class="social-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073z"/>
+                            </svg>
+                        </a>
+                        <a href="#" class="social-link">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="footer-heading">Enlaces rápidos</h3>
+                    <ul class="footer-links">
+                        <li><a href="#" class="footer-link">Soluciones</a></li>
+                        <li><a href="#" class="footer-link">Para fotógrafos</a></li>
+                        <li><a href="#" class="footer-link">Para empresas</a></li>
+                        <li><a href="#" class="footer-link">Acerca de</a></li>
+                        <li><a href="#" class="footer-link">Blog</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="footer-heading">Contacto</h3>
+                    <ul class="footer-links">
+                        <li><a href="mailto:info@fotoshow.site" class="footer-link">info@fotoshow.ar</a></li>
+                        <li><a href="tel:+1234567890" class="footer-link">+54 9 (2254) 5867-48</a></li>
+                        <li class="footer-link">Humberto Elliff 51, Alberti Pcia Bs. As. Argentina.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p class="copyright">© <span id="year"></span> fotoshow.ar. Todos los derechos reservados.</p>
+                <div class="footer-bottom-links">
+                    <a href="#" class="footer-link">Política de privacidad</a>
+                    <a href="#" class="footer-link">Términos de servicio</a>
+                    <a href="#" class="footer-link">Cookies</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Logo Carousel
+        const logos = [
+                      { name: 'EY', url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Logo_NIKE.svg/200px-Logo_NIKE.svg.png' },
+           { name: 'Juventus', url: 'https://external-extends-authorization-sphere.trycloudflare.com/api/image/photo/cabb63e4-6be8-40ba-8835-626b97090212' },
+            { name: 'Netflix', url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Netflix_2015_logo.svg/200px-Netflix_2015_logo.svg.png' },
+            
+          
+              { name: 'Adidas', url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Adidas_Logo.svg/200px-Adidas_Logo.svg.png' },
+                
+            { name: 'Coca Cola', url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Coca-Cola_logo.svg/200px-Coca-Cola_logo.svg.png' },
+            
+            { name: 'Mercedes', url: 'https://external-extends-authorization-sphere.trycloudflare.com/api/image/photo/3489914c-2419-4277-81d8-f17278516db1' },
+        ];
+
+        const logoCarousel = document.getElementById('logoCarousel');
+        const allLogos = [...logos, ...logos, ...logos];
+        
+        allLogos.forEach(logo => {
+            const logoItem = document.createElement('div');
+            logoItem.className = 'logo-item';
+            logoItem.innerHTML = `<img src="${logo.url}" alt="${logo.name}">`;
+            logoCarousel.appendChild(logoItem);
+        });
+
+        // Testimonials
+        const testimonials = [
+            {
+                logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/BMW.svg/200px-BMW.svg.png',
+                text: 'Hasta la fecha hemos estado mayormente ciegos sobre el compromiso de nuestros invitados durante eventos en vivo, aprovechando fotoshow.ar ahora desbloqueamos un nuevo conjunto de información que usaremos para evaluar el compromiso de nuestros invitados y obtener un mejor retorno de nuestro gasto.',
+                author: 'Lorenzo Boglione',
+                position: 'Vicepresidente Senior, Basic Net SPA K-Way, Sebago, Kappa',
+                image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop'
+            },
+            {
+                logo: 'https://officially-casino-songs-ssl.trycloudflare.com/api/image/photo/d536d8c9-7614-4d7d-8a38-31f82b747355',
+                text: 'Por lejos la forma más atractiva y efectiva de involucrar a nuestros fans y enriquecer nuestro esfuerzo de CRM, con fotoshow.ar encontramos la manera de entregar en los smartphones de nuestros fans recuerdos reales, que muchos de ellos pegarán en su pared durante toda su vida.',
+                author: 'Francesco Calvo',
+                position: 'Director de Fútbol, La Montañesa Football Club',
+                image: 'https://officially-casino-songs-ssl.trycloudflare.com/api/image/photo/d536d8c9-7614-4d7d-8a38-31f82b747355'
+            },
+            {
+                logo: 'https://via.placeholder.com/150x50/3b82f6/ffffff?text=LUISS',
+                text: 'Cristalizar algunos momentos mágicos en la vida de nuestros estudiantes no tiene precio para nosotros, lo hacíamos antes pero luchábamos con el esfuerzo de distribuir las fotos, ahora todo ese trabajo manual ha terminado.',
+                author: 'Massimo Angelini',
+                position: 'Director de Comunicación, LUISS',
+                image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop'
+            }
+        ];
+
+        let currentTestimonial = 0;
+
+        function updateTestimonial(index) {
+            const testimonial = testimonials[index];
+            document.getElementById('testimonialLogo').src = testimonial.logo;
+            document.getElementById('testimonialText').textContent = `"${testimonial.text}"`;
+            document.getElementById('testimonialAuthor').textContent = testimonial.author;
+            document.getElementById('testimonialPosition').textContent = testimonial.position;
+            document.getElementById('testimonialImage').src = testimonial.image;
+
+            // Update dots
+            const dotsContainer = document.getElementById('testimonialDots');
+            dotsContainer.innerHTML = '';
+            testimonials.forEach((_, i) => {
+                const dot = document.createElement('button');
+                dot.className = i === index ? 'dot active' : 'dot';
+                dot.addEventListener('click', () => {
+                    currentTestimonial = i;
+                    updateTestimonial(i);
+                });
+                dotsContainer.appendChild(dot);
+            });
+        }
+
+        document.getElementById('prevTestimonial').addEventListener('click', () => {
+            currentTestimonial = (currentTestimonial - 1 + testimonials.length) % testimonials.length;
+            updateTestimonial(currentTestimonial);
+        });
+
+        document.getElementById('nextTestimonial').addEventListener('click', () => {
+            currentTestimonial = (currentTestimonial + 1) % testimonials.length;
+            updateTestimonial(currentTestimonial);
+        });
+
+        // Initialize
+        updateTestimonial(0);
+        document.getElementById('year').textContent = new Date().getFullYear();
+
+        // Mobile menu toggle
+        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+            const navMenu = document.getElementById('navMenu');
+            navMenu.classList.toggle('active');
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add scroll effect to navbar
+        window.addEventListener('scroll', () => {
+            const navbar = document.querySelector('.navbar');
+            if (window.scrollY > 50) {
+                navbar.style.background = 'rgba(26, 10, 46, 0.95)';
+                navbar.style.backdropFilter = 'blur(10px)';
+            } else {
+                navbar.style.background = 'var(--primary-dark)';
+                navbar.style.backdropFilter = 'none';
+            }
+        });
+
+        // Animated text effect - changing words
+        document.addEventListener('DOMContentLoaded', () => {
+            const changingWord = document.getElementById('changingWord');
+            const words = ['evento', 'negocio', 'audiencia'];
+            let currentIndex = 0;
+            
+            function changeWord() {
+                // Añadir animación de balanceo
+                changingWord.classList.add('balancing');
+                
+                setTimeout(() => {
+                    // Cambiar la palabra
+                    currentIndex = (currentIndex + 1) % words.length;
+                    changingWord.textContent = words[currentIndex];
+                    
+                    // Quitar clase de animación
+                    changingWord.classList.remove('balancing');
+                }, 500);
+            }
+            
+            // Cambiar palabra cada 3 segundos
+            setInterval(changeWord, 3000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconocimiento Facial con Identificadores</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .file-upload {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-upload input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-upload-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .file-upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-search {
+            background: linear-gradient(45deg, #FF6B6B, #FF8E53);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-search:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+
+        .btn-load {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-load:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .photos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .photo-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .photo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .photo-container {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .photo-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+
+        .photo-card:hover .photo-image {
+            transform: scale(1.05);
+        }
+
+        .face-overlay {
+            position: absolute;
+            border: 3px solid #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+            backdrop-filter: blur(2px);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .face-overlay:hover {
+            border-color: #FF6B6B;
+            background: rgba(255, 107, 107, 0.2);
+            transform: scale(1.1);
+        }
+
+        .face-id {
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .face-name {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            white-space: nowrap;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .photo-info {
+            padding: 20px;
+        }
+
+        .photo-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .photo-details {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .face-count-badge {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            display: inline-block;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal h3 {
+            margin-bottom: 20px;
+            color: #333;
+            text-align: center;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            transition: border-color 0.3s ease;
+        }
+
+        .modal input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-modal {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-save {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-search-similar {
+            background: #FF6B6B;
+            color: white;
+        }
+
+        .btn-cancel {
+            background: #ddd;
+            color: #333;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .search-results {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #eee;
+        }
+
+        .search-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .match-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .match-similarity {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Reconocimiento Facial Inteligente</h1>
+        
+        <div class="controls">
+            <div class="file-upload">
+                <input type="file" id="photoUpload" accept="image/*" multiple>
+                <button class="file-upload-btn" onclick="document.getElementById('photoUpload').click()">
+                    📷 Subir Fotos
+                </button>
+            </div>
+            
+            <div class="file-upload">
+                <input type="file" id="searchUpload" accept="image/*">
+                <button class="btn btn-search" onclick="document.getElementById('searchUpload').click()">
+                    🔍 Buscar Cara
+                </button>
+            </div>
+            
+            <button class="btn btn-load" onclick="loadPhotos()">
+                📂 Cargar Fotos
+            </button>
+            
+            <button class="btn btn-load" onclick="showPeopleList()">
+                👥 Ver Personas
+            </button>
+        </div>
+        
+        <!-- Búsqueda por nombre -->
+        <div class="search-section" style="margin-bottom: 20px;">
+            <input type="text" id="nameSearch" placeholder="Buscar por nombre..." 
+                   style="padding: 12px; border: 2px solid #ddd; border-radius: 25px; width: 300px; margin-right: 10px;">
+            <button class="btn btn-search" onclick="searchByName()" style="border-radius: 25px;">
+                Buscar por Nombre
+            </button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <div>Procesando imágenes...</div>
+        </div>
+
+        <div id="photosGrid" class="photos-grid"></div>
+        
+        <div id="searchResults" class="search-results" style="display: none;">
+            <h3 class="search-title">Resultados de Búsqueda</h3>
+            <div id="matchesList"></div>
+        </div>
+    </div>
+
+    <!-- Modal para editar cara -->
+    <div id="faceModal" class="modal">
+        <div class="modal-content">
+            <h3>Editar Información de la Cara</h3>
+            <input type="text" id="faceName" placeholder="Nombre de la persona">
+            <input type="text" id="faceNotes" placeholder="Notas adicionales">
+            <div class="modal-buttons">
+                <button class="btn-modal btn-save" onclick="saveFaceInfo()">Guardar</button>
+                <button class="btn-modal btn-search-similar" onclick="searchSimilarFaces()">Buscar Similar</button>
+                <button class="btn-modal btn-cancel" onclick="closeFaceModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración de la API
+        const API_BASE = 'http://localhost:8000/api';
+        
+        let currentPhotos = [];
+        let currentFaceId = null;
+        let currentPhotoId = null;
+        let faceData = {}; // Almacena nombres y notas de caras
+
+        // Event listeners
+        document.getElementById('photoUpload').addEventListener('change', handlePhotoUpload);
+        document.getElementById('searchUpload').addEventListener('change', handleSearchUpload);
+
+        // Cargar fotos al inicio
+        loadPhotos();
+
+        async function handlePhotoUpload(event) {
+            const files = event.target.files;
+            if (!files.length) return;
+
+            showLoading(true);
+
+            for (let file of files) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const response = await fetch(`${API_BASE}/upload-photo`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Error uploading ${file.name}: ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    console.log(`Uploaded ${file.name}:`, result);
+                } catch (error) {
+                    console.error('Error uploading photo:', error);
+                    alert(`Error subiendo ${file.name}: ${error.message}`);
+                }
+            }
+
+            showLoading(false);
+            loadPhotos(); // Recargar fotos
+        }
+
+        async function handleSearchUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showLoading(true);
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch(`${API_BASE}/search-face?threshold=0.7`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error searching face: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                displaySearchResults(result);
+            } catch (error) {
+                console.error('Error searching face:', error);
+                alert(`Error buscando cara: ${error.message}`);
+            }
+
+            showLoading(false);
+        }
+
+        async function loadPhotos() {
+            console.log('Cargando fotos...');
+            try {
+                const response = await fetch(`${API_BASE}/photos`);
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`Error loading photos: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                console.log('Photos loaded:', result);
+                
+                if (!result.photos || result.photos.length === 0) {
+                    document.getElementById('photosGrid').innerHTML = 
+                        '<div style="text-align: center; padding: 40px; color: #666;">' +
+                        '<h3>No hay fotos cargadas</h3>' +
+                        '<p>Sube algunas fotos para comenzar el reconocimiento facial</p>' +
+                        '</div>';
+                    return;
+                }
+                
+                currentPhotos = result.photos;
+                console.log(`Mostrando ${currentPhotos.length} fotos`);
+                await displayPhotos();
+            } catch (error) {
+                console.error('Error loading photos:', error);
+                document.getElementById('photosGrid').innerHTML = 
+                    '<div style="text-align: center; padding: 40px; color: #f44336;">' +
+                    '<h3>Error cargando fotos</h3>' +
+                    '<p>' + error.message + '</p>' +
+                    '<button onclick="loadPhotos()" class="btn btn-load">Reintentar</button>' +
+                    '</div>';
+            }
+        }
+
+        async function displayPhotos() {
+            const grid = document.getElementById('photosGrid');
+            grid.innerHTML = '';
+
+            for (let photo of currentPhotos) {
+                try {
+                    // Obtener caras de la foto
+                    const facesResponse = await fetch(`${API_BASE}/photos/${photo.id}/faces`);
+                    if (!facesResponse.ok) continue;
+                    
+                    const facesResult = await facesResponse.json();
+                    const faces = facesResult.faces;
+
+                    const photoCard = createPhotoCard(photo, faces);
+                    grid.appendChild(photoCard);
+                } catch (error) {
+                    console.error(`Error loading faces for photo ${photo.id}:`, error);
+                }
+            }
+        }
+
+        function createPhotoCard(photo, faces) {
+            const card = document.createElement('div');
+            card.className = 'photo-card';
+
+            const photoContainer = document.createElement('div');
+            photoContainer.className = 'photo-container';
+
+            const img = document.createElement('img');
+            img.className = 'photo-image';
+            img.src = `${API_BASE}/image/photo/${photo.id}`;
+            img.onload = () => {
+                // Añadir overlays de caras después de cargar la imagen
+                addFaceOverlays(photoContainer, faces, img);
+            };
+
+            photoContainer.appendChild(img);
+
+            const photoInfo = document.createElement('div');
+            photoInfo.className = 'photo-info';
+
+            const title = document.createElement('div');
+            title.className = 'photo-title';
+            title.textContent = photo.filename;
+
+            const details = document.createElement('div');
+            details.className = 'photo-details';
+            details.innerHTML = `
+                Dimensiones: ${photo.image_width}x${photo.image_height}<br>
+                Tamaño: ${formatFileSize(photo.file_size)}<br>
+                Subida: ${formatDate(photo.upload_date)}
+            `;
+
+            const badge = document.createElement('span');
+            badge.className = 'face-count-badge';
+            badge.textContent = `${faces.length} cara${faces.length !== 1 ? 's' : ''}`;
+
+            photoInfo.appendChild(title);
+            photoInfo.appendChild(details);
+            photoInfo.appendChild(badge);
+
+            card.appendChild(photoContainer);
+            card.appendChild(photoInfo);
+
+            return card;
+        }
+
+        function addFaceOverlays(container, faces, img) {
+            const imgRect = img.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            // Calcular factor de escala
+            const scaleX = img.clientWidth / img.naturalWidth;
+            const scaleY = img.clientHeight / img.naturalHeight;
+
+            faces.forEach((face, index) => {
+                const bbox = face.bounding_box;
+                
+                const overlay = document.createElement('div');
+                overlay.className = 'face-overlay';
+                
+                // Calcular posición y tamaño escalados
+                const left = bbox.x * scaleX;
+                const top = bbox.y * scaleY;
+                const width = bbox.width * scaleX;
+                const height = bbox.height * scaleY;
+                
+                overlay.style.left = `${left}px`;
+                overlay.style.top = `${top}px`;
+                overlay.style.width = `${width}px`;
+                overlay.style.height = `${height}px`;
+                
+                // ID de la cara
+                const faceId = document.createElement('div');
+                faceId.className = 'face-id';
+                faceId.textContent = index + 1;
+                
+                overlay.appendChild(faceId);
+                
+                // Nombre si existe (desde backend o localStorage)
+                const faceKey = `${face.photo_id}_${face.id}`;
+                let faceName = face.face_name; // Desde backend
+                
+                // Si no hay nombre en backend, usar localStorage como backup
+                if (!faceName && faceData[faceKey] && faceData[faceKey].name) {
+                    faceName = faceData[faceKey].name;
+                }
+                
+                if (faceName) {
+                    const faceNameDiv = document.createElement('div');
+                    faceNameDiv.className = 'face-name';
+                    faceNameDiv.textContent = faceName;
+                    overlay.appendChild(faceNameDiv);
+                }
+                
+                // Click handler
+                overlay.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openFaceModal(face);
+                });
+                
+                container.appendChild(overlay);
+            });
+        }
+
+        function openFaceModal(face) {
+            currentFaceId = face.id;
+            currentPhotoId = face.photo_id;
+            
+            const faceKey = `${face.photo_id}_${face.id}`;
+            const existingData = faceData[faceKey] || {};
+            
+            document.getElementById('faceName').value = existingData.name || '';
+            document.getElementById('faceNotes').value = existingData.notes || '';
+            
+            document.getElementById('faceModal').style.display = 'block';
+        }
+
+        function closeFaceModal() {
+            document.getElementById('faceModal').style.display = 'none';
+            currentFaceId = null;
+            currentPhotoId = null;
+        }
+
+        async function saveFaceInfo() {
+            if (!currentFaceId || !currentPhotoId) return;
+            
+            const name = document.getElementById('faceName').value.trim();
+            const notes = document.getElementById('faceNotes').value.trim();
+            
+            try {
+                // Guardar en backend
+                const response = await fetch(`${API_BASE}/faces/${currentFaceId}/info`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, notes })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Error guardando información');
+                }
+                
+                // También guardar en localStorage como backup
+                const faceKey = `${currentPhotoId}_${currentFaceId}`;
+                faceData[faceKey] = { name, notes };
+                localStorage.setItem('faceData', JSON.stringify(faceData));
+                
+                closeFaceModal();
+                
+                // Recargar fotos para mostrar el nombre actualizado
+                displayPhotos();
+                
+                alert('Información guardada correctamente');
+                
+            } catch (error) {
+                console.error('Error saving face info:', error);
+                alert(`Error guardando información: ${error.message}`);
+            }
+        }
+
+        async function searchSimilarFaces() {
+            if (!currentFaceId) return;
+            
+            showLoading(true);
+            
+            try {
+                // Obtener la imagen de la cara actual
+                const faceImageResponse = await fetch(`${API_BASE}/image/face/${currentFaceId}`);
+                if (!faceImageResponse.ok) {
+                    throw new Error('Error obteniendo imagen de cara');
+                }
+                
+                const faceBlob = await faceImageResponse.blob();
+                const formData = new FormData();
+                formData.append('file', faceBlob, 'face.jpg');
+                
+                const searchResponse = await fetch(`${API_BASE}/search-face?threshold=0.6`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!searchResponse.ok) {
+                    throw new Error('Error en búsqueda');
+                }
+                
+                const result = await searchResponse.json();
+                displaySearchResults(result);
+                closeFaceModal();
+            } catch (error) {
+                console.error('Error searching similar faces:', error);
+                alert(`Error buscando caras similares: ${error.message}`);
+            }
+            
+            showLoading(false);
+        }
+
+        function displaySearchResults(result) {
+            const resultsDiv = document.getElementById('searchResults');
+            const matchesList = document.getElementById('matchesList');
+            
+            matchesList.innerHTML = '';
+            
+            if (result.matches_found === 0) {
+                matchesList.innerHTML = '<p>No se encontraron coincidencias.</p>';
+            } else {
+                result.matches.forEach(match => {
+                    const matchItem = document.createElement('div');
+                    matchItem.className = 'match-item';
+                    
+                    const similarity = document.createElement('span');
+                    similarity.className = 'match-similarity';
+                    similarity.textContent = `${(match.similarity * 100).toFixed(1)}%`;
+                    
+                    const info = document.createElement('div');
+                    info.innerHTML = `
+                        <strong>${match.photo_filename}</strong><br>
+                        Calidad: ${match.face_quality_score.toFixed(2)}<br>
+                        Método: ${match.detection_method}
+                    `;
+                    
+                    const viewBtn = document.createElement('button');
+                    viewBtn.textContent = 'Ver Foto';
+                    viewBtn.className = 'btn-modal btn-save';
+                    viewBtn.style.marginLeft = 'auto';
+                    viewBtn.onclick = () => {
+                        // Scroll to photo
+                        const photoCards = document.querySelectorAll('.photo-card');
+                        photoCards.forEach(card => {
+                            const img = card.querySelector('.photo-image');
+                            if (img.src.includes(match.photo_id)) {
+                                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                card.style.border = '3px solid #FF6B6B';
+                                setTimeout(() => {
+                                    card.style.border = '';
+                                }, 3000);
+                            }
+                        });
+                    };
+                    
+                    matchItem.appendChild(similarity);
+                    matchItem.appendChild(info);
+                    matchItem.appendChild(viewBtn);
+                    
+                    matchesList.appendChild(matchItem);
+                });
+            }
+            
+            resultsDiv.style.display = 'block';
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return 'N/A';
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Buscar por nombre
+        async function searchByName() {
+            const name = document.getElementById('nameSearch').value.trim();
+            if (!name) {
+                alert('Ingresa un nombre para buscar');
+                return;
+            }
+            
+            showLoading(true);
+            
+            try {
+                const response = await fetch(`${API_BASE}/faces/search-by-name?name=${encodeURIComponent(name)}`);
+                if (!response.ok) {
+                    throw new Error('Error en búsqueda por nombre');
+                }
+                
+                const result = await response.json();
+                displayNameSearchResults(result);
+            } catch (error) {
+                console.error('Error searching by name:', error);
+                alert(`Error buscando por nombre: ${error.message}`);
+            }
+            
+            showLoading(false);
+        }
+        
+        function displayNameSearchResults(result) {
+            const resultsDiv = document.getElementById('searchResults');
+            const matchesList = document.getElementById('matchesList');
+            
+            document.querySelector('.search-title').textContent = `Resultados para "${result.name_searched}"`;
+            matchesList.innerHTML = '';
+            
+            if (result.faces_found === 0) {
+                matchesList.innerHTML = '<p>No se encontraron personas con ese nombre.</p>';
+            } else {
+                result.faces.forEach(face => {
+                    const matchItem = document.createElement('div');
+                    matchItem.className = 'match-item';
+                    
+                    const quality = document.createElement('span');
+                    quality.className = 'match-similarity';
+                    quality.textContent = `Calidad: ${face.face_quality_score.toFixed(2)}`;
+                    
+                    const info = document.createElement('div');
+                    info.innerHTML = `
+                        <strong>${face.photo_filename}</strong><br>
+                        Nombre: ${face.face_name || 'Sin nombre'}<br>
+                        ${face.face_notes ? `Notas: ${face.face_notes}<br>` : ''}
+                        Confianza: ${(face.confidence * 100).toFixed(1)}%
+                    `;
+                    
+                    const viewBtn = document.createElement('button');
+                    viewBtn.textContent = 'Ver Foto';
+                    viewBtn.className = 'btn-modal btn-save';
+                    viewBtn.style.marginLeft = 'auto';
+                    viewBtn.onclick = () => {
+                        highlightPhotoById(face.photo_id);
+                    };
+                    
+                    matchItem.appendChild(quality);
+                    matchItem.appendChild(info);
+                    matchItem.appendChild(viewBtn);
+                    
+                    matchesList.appendChild(matchItem);
+                });
+            }
+            
+            resultsDiv.style.display = 'block';
+        }
+        
+        // Mostrar lista de personas
+        async function showPeopleList() {
+            showLoading(true);
+            
+            try {
+                const response = await fetch(`${API_BASE}/people`);
+                if (!response.ok) {
+                    throw new Error('Error obteniendo lista de personas');
+                }
+                
+                const result = await response.json();
+                displayPeopleList(result);
+            } catch (error) {
+                console.error('Error getting people list:', error);
+                alert(`Error obteniendo personas: ${error.message}`);
+            }
+            
+            showLoading(false);
+        }
+        
+        function displayPeopleList(result) {
+            const resultsDiv = document.getElementById('searchResults');
+            const matchesList = document.getElementById('matchesList');
+            
+            document.querySelector('.search-title').textContent = `Personas Registradas (${result.total_people})`;
+            matchesList.innerHTML = '';
+            
+            if (result.total_people === 0) {
+                matchesList.innerHTML = '<p>No hay personas registradas aún.</p>';
+            } else {
+                result.people.forEach(person => {
+                    const personItem = document.createElement('div');
+                    personItem.className = 'match-item';
+                    
+                    const stats = document.createElement('span');
+                    stats.className = 'match-similarity';
+                    stats.textContent = `${person.face_count} caras`;
+                    
+                    const info = document.createElement('div');
+                    info.innerHTML = `
+                        <strong>${person.name}</strong><br>
+                        Fotos: ${person.photo_count}<br>
+                        Calidad promedio: ${person.avg_quality.toFixed(2)}
+                    `;
+                    
+                    const searchBtn = document.createElement('button');
+                    searchBtn.textContent = 'Ver Fotos';
+                    searchBtn.className = 'btn-modal btn-search-similar';
+                    searchBtn.style.marginLeft = 'auto';
+                    searchBtn.onclick = () => {
+                        document.getElementById('nameSearch').value = person.name;
+                        searchByName();
+                    };
+                    
+                    personItem.appendChild(stats);
+                    personItem.appendChild(info);
+                    personItem.appendChild(searchBtn);
+                    
+                    matchesList.appendChild(personItem);
+                });
+            }
+            
+            resultsDiv.style.display = 'block';
+        }
+        
+        function highlightPhotoById(photoId) {
+            const photoCards = document.querySelectorAll('.photo-card');
+            photoCards.forEach(card => {
+                const img = card.querySelector('.photo-image');
+                if (img.src.includes(photoId)) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.style.border = '3px solid #FF6B6B';
+                    setTimeout(() => {
+                        card.style.border = '';
+                    }, 3000);
+                }
+            });
+        }
+
+        // Cargar datos guardados al inicio
+        window.addEventListener('load', () => {
+            const savedData = localStorage.getItem('faceData');
+            if (savedData) {
+                faceData = JSON.parse(savedData);
+            }
+        });
+
+        // Cerrar modal al hacer clic fuera
+        window.addEventListener('click', (e) => {
+            if (e.target === document.getElementById('faceModal')) {
+                closeFaceModal();
+            }
+        });
+    </script>
+</body>
+</html>

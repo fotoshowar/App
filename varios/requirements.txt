@@ -1,0 +1,25 @@
+
+PyQt6>=6.4.0
+
+
+opencv-python>=4.8.0
+numpy>=1.21.0
+Pillow>=9.0.0
+
+
+face-recognition>=1.3.0
+
+
+
+torch>=1.12.0
+torchvision>=0.13.0
+
+
+facenet-pytorch>=2.5.0
+
+
+# Utilidades científicas y matemáticas
+scipy>=1.8.0
+scikit-learn>=1.1.0
+
+

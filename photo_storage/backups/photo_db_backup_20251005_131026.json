@@ -1,0 +1,70 @@
+{
+  "photos": {
+    "3f5b1b14-96b0-4fa4-a82f-7d5deaca268a": {
+      "id": "3f5b1b14-96b0-4fa4-a82f-7d5deaca268a",
+      "filename": "WhatsApp Image 2025-09-23 at 2.40.37 AM (1).jpeg",
+      "filepath": "photo_storage/uploads/3f5b1b14-96b0-4fa4-a82f-7d5deaca268a.jpeg",
+      "upload_date": "2025-10-05T13:03:27.886186",
+      "file_size": 106299,
+      "thumbnail_path": "photo_storage/thumbnails/3f5b1b14-96b0-4fa4-a82f-7d5deaca268a_thumb.jpg",
+      "width": 1280,
+      "height": 960,
+      "format": "JPEG",
+      "mode": "RGB",
+      "exif": {},
+      "aspect_ratio": 1.33,
+      "collections": [],
+      "tags": [],
+      "face_processed": false,
+      "face_count": 0,
+      "custom_metadata": {}
+    },
+    "16148875-0ee0-47c4-acaf-00006031490c": {
+      "id": "16148875-0ee0-47c4-acaf-00006031490c",
+      "filename": "WhatsApp Image 2025-10-03 at 9.45.07 PM(1).jpeg",
+      "filepath": "photo_storage/uploads/16148875-0ee0-47c4-acaf-00006031490c.jpeg",
+      "upload_date": "2025-10-05T13:03:49.771175",
+      "file_size": 290937,
+      "thumbnail_path": "photo_storage/thumbnails/16148875-0ee0-47c4-acaf-00006031490c_thumb.jpg",
+      "width": 1600,
+      "height": 1200,
+      "format": "JPEG",
+      "mode": "RGB",
+      "exif": {},
+      "aspect_ratio": 1.33,
+      "collections": [],
+      "tags": [],
+      "face_processed": false,
+      "face_count": 0,
+      "custom_metadata": {}
+    },
+    "55509371-b70b-49f0-99df-86e58ea30c1b": {
+      "id": "55509371-b70b-49f0-99df-86e58ea30c1b",
+      "filename": "WhatsApp Image 2025-10-03 at 9.45.07 PM(1).jpeg",
+      "filepath": "photo_storage/uploads/55509371-b70b-49f0-99df-86e58ea30c1b.jpeg",
+      "upload_date": "2025-10-05T13:04:01.154748",
+      "file_size": 290937,
+      "thumbnail_path": "photo_storage/thumbnails/55509371-b70b-49f0-99df-86e58ea30c1b_thumb.jpg",
+      "width": 1600,
+      "height": 1200,
+      "format": "JPEG",
+      "mode": "RGB",
+      "exif": {},
+      "aspect_ratio": 1.33,
+      "collections": [],
+      "tags": [],
+      "face_processed": false,
+      "face_count": 0,
+      "custom_metadata": {},
+      "image_width": 1600,
+      "image_height": 1200,
+      "last_modified": "2025-10-05T13:10:25.484318"
+    }
+  },
+  "collections": {},
+  "tags": {},
+  "metadata": {
+    "version": "2.0",
+    "created": "2025-10-05T12:27:46.927673"
+  }
+}

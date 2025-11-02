@@ -1,0 +1,89 @@
+{
+  "photos": {
+    "20750b38-763c-4e36-9151-2e044c1c3cde": {
+      "id": "20750b38-763c-4e36-9151-2e044c1c3cde",
+      "filename": "b35d18b8-5757-402f-a0ff-c430f0aa82ec.jpg",
+      "filepath": "uploads/20750b38-763c-4e36-9151-2e044c1c3cde.jpg",
+      "upload_date": "2025-10-22T15:16:02.297453",
+      "image_width": 1936,
+      "image_height": 1296,
+      "file_size": 431732,
+      "faces": [
+        "bc8f579e-663b-4a23-80e0-ce39af5f710b",
+        "63e2b2af-b97d-418c-b568-e3ffbd629452",
+        "c7e634ec-8b69-4dc9-b882-b0a1351482af",
+        "9eaaaafb-536e-4f76-88f3-1db0d42f77b1"
+      ],
+      "faces_count": 4
+    },
+    "f528aa50-5bc8-469f-91ac-b4e043484281": {
+      "id": "f528aa50-5bc8-469f-91ac-b4e043484281",
+      "filename": "aad53bb0-9b80-4840-8a5e-d38cdc122227.jpg",
+      "filepath": "uploads/f528aa50-5bc8-469f-91ac-b4e043484281.jpg",
+      "upload_date": "2025-10-22T15:58:17.624785",
+      "image_width": 1936,
+      "image_height": 1296,
+      "file_size": 431726,
+      "faces": [
+        "34b74976-88f3-4d51-84be-0a0aa4f32511",
+        "54d9b6e9-4ead-41f0-9636-43784b7b0574"
+      ],
+      "faces_count": 2
+    },
+    "58716316-bcc9-478f-aa50-a9b8ad127180": {
+      "id": "58716316-bcc9-478f-aa50-a9b8ad127180",
+      "filename": "aad53bb0-9b80-4840-8a5e-d38cdc122227.jpg",
+      "filepath": "uploads/58716316-bcc9-478f-aa50-a9b8ad127180.jpg",
+      "upload_date": "2025-10-22T16:01:32.196531",
+      "image_width": 1936,
+      "image_height": 1296,
+      "file_size": 431726,
+      "faces": [
+        "4310f994-7bd1-481f-87c5-cad3abe132c8",
+        "acbcf4f1-d50d-44da-9256-55a93c698e1f"
+      ],
+      "faces_count": 2
+    },
+    "2a055d8f-5975-4648-a533-5a6061eef107": {
+      "id": "2a055d8f-5975-4648-a533-5a6061eef107",
+      "filename": "aad53bb0-9b80-4840-8a5e-d38cdc122227.jpg",
+      "filepath": "uploads/2a055d8f-5975-4648-a533-5a6061eef107.jpg",
+      "upload_date": "2025-10-22T16:05:39.536642",
+      "image_width": 1936,
+      "image_height": 1296,
+      "file_size": 431726,
+      "faces": [
+        "bb56a1d5-dc05-4a4d-a010-9de42c2947c9",
+        "603027b6-a4a2-454d-8fb3-59d5d918515f"
+      ],
+      "faces_count": 2
+    },
+    "de9a4a9f-4ebb-4ce8-a673-2147fa713481": {
+      "id": "de9a4a9f-4ebb-4ce8-a673-2147fa713481",
+      "filename": "aad53bb0-9b80-4840-8a5e-d38cdc122227.jpg",
+      "filepath": "uploads/de9a4a9f-4ebb-4ce8-a673-2147fa713481.jpg",
+      "upload_date": "2025-10-22T16:13:48.430385",
+      "image_width": 1936,
+      "image_height": 1296,
+      "file_size": 431726,
+      "faces": [
+        "42605f0d-9bf5-4048-bda5-28af8307e734",
+        "877ca280-7d1f-42f1-8b72-cb47ec9a3b52"
+      ],
+      "faces_count": 2
+    },
+    "78e3d8f1-e607-4fc5-af1f-c2ea5fe35f69": {
+      "id": "78e3d8f1-e607-4fc5-af1f-c2ea5fe35f69",
+      "filename": "whatsapp_5493764684759.jpg",
+      "filepath": "uploads/78e3d8f1-e607-4fc5-af1f-c2ea5fe35f69.jpg",
+      "upload_date": "2025-10-22T16:14:55.266610",
+      "image_width": 1600,
+      "image_height": 1071,
+      "file_size": 317235,
+      "faces": [
+        "ba903a52-d6a7-42fb-b9d5-d30477b10728",
+        "84dd4005-de7b-4b7d-8688-27f06f62c855"
+      ]
+    }
+  }
+}

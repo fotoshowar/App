@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOTOSHOW | Búsqueda Facial</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Variables CSS para mejor mantenimiento */
+        :root {
+            --primary-dark: #1a0a2e;
+            --secondary-dark: #2d1b4e;
+            --primary-blue: #2563eb;
+            --primary-light-blue: #3b82f6;
+            --primary-purple: #8b5cf6;
+            --text-light: #d1d5db;
+            --text-muted: #9ca3af;
+            --white: #ffffff;
+            --bg-light: #f9fafb;
+            --bg-card: #ffffff;
+            --border-color: #e5e7eb;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Reset y estilos base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary-dark) 100%);
+            color: #111827;
+            overflow-x: hidden;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(26, 10, 46, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            text-decoration: none;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            background: linear-gradient(135deg, var(--primary-light-blue) 0%, var(--primary-purple) 100%);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover .logo-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--white);
+            text-decoration: none;
+        }
+
+        .page-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--white);
+            margin: 0.5rem 0;
+        }
+
+        .page-subtitle {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Search Card */
+        .search-card {
+            background: var(--bg-card);
+            border-radius: 1rem;
+            box-shadow: var(--shadow-lg);
+            padding: 2rem;
+            width: 100%;
+            border: 1px solid var(--border-color);
+        }
+
+        .search-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .search-info {
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: #0369a1;
+            text-align: center;
+        }
+
+        .threshold-control {
+            margin-bottom: 2rem;
+        }
+
+        .threshold-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+
+        .threshold-slider {
+            width: 100%;
+            height: 0.5rem;
+            background-color: var(--border-color);
+            border-radius: 0.25rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .threshold-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .search-button {
+            background: linear-gradient(135deg, var(--primary-light-blue) 0%, var(--primary-purple) 100%);
+            color: var(--white);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.2s;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .search-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .search-button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        /* Results Section */
+        .results-section {
+            margin-top: 2rem;
+            width: 100%;
+        }
+
+        .results-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .results-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .results-subtitle {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .clear-button {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .clear-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .result-card {
+            background: var(--bg-card);
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .result-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-image {
+            aspect-ratio: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .result-placeholder {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: var(--text-muted);
+        }
+
+        .result-rank {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            background: linear-gradient(135deg, var(--primary-light-blue) 0%, var(--primary-purple) 100%);
+            color: var(--white);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 500;
+        }
+
+        .result-similarity {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #10b981;
+            color: var(--white);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 500;
+        }
+
+        .result-info {
+            padding: 1rem;
+        }
+
+        .result-title {
+            font-weight: 500;
+            color: #111827;
+            margin: 0 0 0.25rem 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .result-score {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin: 0 0 0.25rem 0;
+        }
+
+        .result-id {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--white);
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+        }
+
+        .empty-title {
+            font-size: 1.125rem;
+            font-weight: 500;
+            color: var(--white);
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-subtitle {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        /* Webcam Popup - USANDO LAS MISMAS CLASES DEL PRIMER HTML */
+        .webcam-popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .webcam-popup {
+            background: var(--bg-card);
+            border-radius: 1rem;
+            width: 100%;
+            max-width: 400px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .webcam-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-light);
+        }
+
+        .webcam-popup-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+            margin: 0;
+        }
+
+        .webcam-popup-content {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 3/4; /* Formato selfie rectangular vertical */
+            background: #000;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .webcam-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* Corrección del efecto espejo para cámara frontal */
+            transform: scaleX(-1);
+            /* Asegurarse de que el video esté por encima del placeholder */
+            position: relative;
+            z-index: 1;
+        }
+
+        .webcam-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+            background: #000;
+            z-index: 0;
+        }
+
+        .webcam-placeholder-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .webcam-placeholder-text {
+            font-size: 16px;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .webcam-popup-footer {
+            padding: 16px 20px;
+            background: var(--bg-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .webcam-status {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .webcam-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-light-blue) 0%, var(--primary-purple) 100%);
+            color: var(--white);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-ghost {
+            background-color: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-ghost:hover {
+            background-color: var(--bg-light);
+            color: #111827;
+        }
+
+        .btn-icon {
+            padding: 8px 12px;
+            min-width: auto;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: var(--white);
+        }
+
+        .spinner {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1rem;
+            color: var(--text-light);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 1rem;
+            }
+            
+            .results-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">🔍</div>
+            <span class="logo-text">FOTOSHOW</span>
+        </div>
+        <h1 class="page-title">Búsqueda Facial</h1>
+        <p class="page-subtitle">Usa tu cámara para encontrar tus fotos</p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Search Card -->
+        <div class="search-card">
+            <h2 class="search-title">Configuración de Búsqueda</h2>
+            
+            <div class="search-info">
+                <strong>Importante:</strong> Las fotos que uses para buscar no se guardarán. Solo se usarán para encontrar coincidencias en tu colección.
+            </div>
+            
+            <div class="threshold-control">
+                <label class="threshold-label" for="threshold-slider">
+                    Umbral de Similitud: <span id="threshold-display">70%</span>
+                </label>
+                <input type="range" id="threshold-slider" min="50" max="95" step="5" value="70" class="threshold-slider" oninput="updateThreshold(this.value)">
+                <div class="threshold-labels">
+                    <span>Más coincidencias</span>
+                    <span>Mayor precisión</span>
+                </div>
+            </div>
+
+            <button class="search-button" onclick="openWebcamPopup()" id="webcam-btn">
+                📷 Usar Cámara para Buscar
+            </button>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section" id="results-section">
+            <div class="results-header">
+                <div>
+                    <h3 class="results-title">Resultados de Búsqueda</h3>
+                    <p class="results-subtitle" id="results-subtitle">Realiza una búsqueda para ver resultados</p>
+                </div>
+                <button class="clear-button hidden" id="clear-results-btn" onclick="clearResults()">
+                    Limpiar
+                </button>
+            </div>
+            
+            <div id="results-container">
+                <div class="empty-state">
+                    <div class="empty-icon">🎯</div>
+                    <h3 class="empty-title">No hay resultados aún</h3>
+                    <p class="empty-subtitle">Usa la cámara para buscar coincidencias</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Webcam Popup - EXACTAMENTE IGUAL AL PRIMER HTML -->
+    <div class="webcam-popup-overlay hidden" id="webcam-popup-overlay" onclick="closeWebcamPopup()">
+        <div class="webcam-popup" onclick="event.stopPropagation()">
+            <div class="webcam-popup-header">
+                <h3 class="webcam-popup-title">Tomar Selfie para Búsqueda</h3>
+                <button class="btn btn-ghost btn-icon" onclick="closeWebcamPopup()" title="Cerrar">
+                    ✕
+                </button>
+            </div>
+            
+            <div class="webcam-popup-content">
+                <video id="webcam-video" class="webcam-video" autoplay playsinline></video>
+                <div class="webcam-placeholder" id="webcam-placeholder">
+                    <div class="webcam-placeholder-icon">📷</div>
+                    <div class="webcam-placeholder-text">Iniciando cámara...</div>
+                </div>
+            </div>
+            
+            <div class="webcam-popup-footer">
+                <div class="webcam-status" id="webcam-status">Cámara lista</div>
+                <div class="webcam-actions">
+                    <button class="btn btn-ghost" onclick="closeWebcamPopup()">
+                        Cancelar
+                    </button>
+                    <button class="btn btn-primary" onclick="capturePhotoFromPopup()" id="capture-btn">
+                        📷 Capturar y Buscar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading hidden" id="loading-state">
+        <div class="spinner">⏳</div>
+        <div class="loading-text">Buscando coincidencias...</div>
+    </div>
+
+    <script>
+        // Global variables
+        let searchResults = [];
+        let isSearching = false;
+        let searchThreshold = 0.7;
+        let webcamStream = null;
+        let showWebcam = false;
+        
+        // Función para detectar si estamos accediendo localmente o por IP pública
+        function getBackendURL() {
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            const protocol = window.location.protocol;
+            
+            // Si estamos accediendo por localhost o 127.0.0.1, usar localhost
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return 'http://localhost:8888';
+            }
+            
+            // Si estamos accediendo por la IP pública, usar la IP pública
+            if (hostname === '191.97.117.104') {
+                return 'http://191.97.117.104:8888';
+            }
+            
+            // Para cualquier otro caso, usar la URL actual
+            return `${protocol}//${hostname}${port ? ':' + port : ''}`;
+        }
+
+        const BACKEND_URL = getBackendURL();
+        const API = `${BACKEND_URL}/api`;
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Backend URL:', BACKEND_URL);
+            console.log('API URL:', API);
+        });
+
+        // Utility functions
+        function updateThreshold(value) {
+            searchThreshold = parseFloat(value) / 100;
+            document.getElementById('threshold-display').textContent = value + '%';
+        }
+
+        // FUNCIONES EXACTAMENTE IGUALES AL PRIMER HTML - QUE FUNCIONAN BIEN
+        async function openWebcamPopup() {
+            if (isSearching) return;
+            
+            // Mostrar el pop-up
+            document.getElementById('webcam-popup-overlay').classList.remove('hidden');
+            
+            // Actualizar estado
+            document.getElementById('webcam-status').textContent = 'Iniciando cámara...';
+            document.getElementById('capture-btn').disabled = true;
+            
+            try {
+                // Verificar si el navegador soporta getUserMedia
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Tu navegador no soporta acceso a la cámara');
+                }
+
+                // Intentar obtener la cámara frontal primero en dispositivos móviles
+                let constraints = {
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    }
+                };
+
+                // En dispositivos móviles, intentar primero con la cámara frontal
+                if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                    try {
+                        webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    } catch (mobileError) {
+                        console.warn('Error con cámara frontal, intentando con cámara trasera:', mobileError);
+                        // Si falla la cámara frontal, intentar con la trasera
+                        constraints.video.facingMode = 'environment';
+                        webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    }
+                } else {
+                    // Para escritorio, usar configuración estándar
+                    webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+                }
+
+                // Configurar el video
+                const webcamVideo = document.getElementById('webcam-video');
+                const webcamPlaceholder = document.getElementById('webcam-placeholder');
+                
+                // Asegurarse de que el video esté visible
+                webcamVideo.style.display = 'block';
+                webcamPlaceholder.style.display = 'none';
+                
+                webcamVideo.srcObject = webcamStream;
+                
+                // Esperar a que el video esté completamente cargado
+                webcamVideo.onloadedmetadata = () => {
+                    // Forzar la reproducción del video
+                    webcamVideo.play().then(() => {
+                        // Asegurarse de que el video se muestre correctamente
+                        webcamVideo.style.width = '100%';
+                        webcamVideo.style.height = '100%';
+                        webcamVideo.style.objectFit = 'cover';
+                        
+                        document.getElementById('webcam-status').textContent = 'Cámara lista';
+                        document.getElementById('capture-btn').disabled = false;
+                        showWebcam = true;
+                    }).catch(error => {
+                        console.error('Error al reproducir el video:', error);
+                        document.getElementById('webcam-status').textContent = 'Error al reproducir video';
+                    });
+                };
+
+            } catch (error) {
+                console.error('Error accessing webcam:', error);
+                
+                // Manejo específico de errores comunes en móviles
+                let errorMessage = 'Error accediendo a la cámara: ';
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage += 'Permiso denegado. Por favor, permite el acceso a la cámara en la configuración de tu navegador.';
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMessage += 'No se encontró ninguna cámara en tu dispositivo.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMessage += 'La cámara está siendo utilizada por otra aplicación.';
+                } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+                    errorMessage += 'La cámara no cumple con los requisitos necesarios.';
+                } else if (error.name === 'TypeError' || error.name === 'TypeError') {
+                    errorMessage += 'Error en la configuración de la cámara.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                alert(errorMessage);
+                closeWebcamPopup();
+            }
+        }
+
+        function closeWebcamPopup() {
+            // Ocultar el pop-up
+            document.getElementById('webcam-popup-overlay').classList.add('hidden');
+            
+            // Detener el stream de manera más robusta
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => {
+                    track.stop();
+                    track.enabled = false;
+                });
+                webcamStream = null;
+            }
+            
+            // Limpiar el elemento de video
+            const webcamVideo = document.getElementById('webcam-video');
+            webcamVideo.srcObject = null;
+            webcamVideo.load(); // Forzar recarga del elemento
+            
+            // Mostrar placeholder
+            document.getElementById('webcam-placeholder').style.display = 'flex';
+            
+            showWebcam = false;
+        }
+
+        async function capturePhotoFromPopup() {
+            if (isSearching || !webcamStream) return;
+
+            const webcamVideo = document.getElementById('webcam-video');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Asegurarse de que el video esté listo
+            if (webcamVideo.readyState !== 4) {
+                alert('La cámara aún no está lista. Por favor, espera un momento.');
+                return;
+            }
+
+            // Usar las dimensiones reales del video
+            canvas.width = webcamVideo.videoWidth;
+            canvas.height = webcamVideo.videoHeight;
+            
+            // Dibujar la imagen actual del video con la corrección del espejo
+            ctx.save();
+            ctx.scale(-1, 1); // Corregir el efecto espejo
+            ctx.drawImage(webcamVideo, -canvas.width, 0, canvas.width, canvas.height);
+            ctx.restore();
+
+            // Convertir a blob con mejor calidad para móviles
+            canvas.toBlob(async (blob) => {
+                if (!blob) {
+                    alert('Error al capturar la imagen. Intenta de nuevo.');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('file', blob, 'webcam-capture.jpg');
+                
+                // Mostrar indicador de progreso
+                const captureBtn = document.getElementById('capture-btn');
+                const originalText = captureBtn.textContent;
+                captureBtn.textContent = '⏳ Buscando...';
+                captureBtn.disabled = true;
+                
+                // Cerrar el pop-up mientras se busca
+                closeWebcamPopup();
+                
+                // Mostrar estado de carga
+                document.getElementById('loading-state').classList.remove('hidden');
+                
+                await performSearch(formData);
+                
+                // Ocultar estado de carga
+                document.getElementById('loading-state').classList.add('hidden');
+                
+                // Restaurar botón
+                captureBtn.textContent = originalText;
+                captureBtn.disabled = false;
+            }, 'image/jpeg', 0.9); // Mayor calidad para móviles
+        }
+
+        // Search functions
+        async function performSearch(formData) {
+            isSearching = true;
+            
+            try {
+                console.log('Searching faces at:', API + '/search-face?threshold=' + searchThreshold);
+                const response = await fetch(API + '/search-face?threshold=' + searchThreshold, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response body:', errorText);
+                    throw new Error('HTTP ' + response.status + ': ' + (errorText || 'Error desconocido'));
+                }
+
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const responseText = await response.text();
+                    console.error('Non-JSON response:', responseText.substring(0, 200));
+                    throw new Error('El servidor no devolvió JSON. Posible error 404 o problema en el endpoint.');
+                }
+
+                const data = await response.json();
+                console.log('Search response:', data);
+
+                if (data.success) {
+                    searchResults = data.matches || [];
+                    
+                    if (data.matches_found > 0) {
+                        document.getElementById('results-subtitle').textContent = data.matches_found + ' coincidencias encontradas';
+                        document.getElementById('clear-results-btn').classList.remove('hidden');
+                        renderResults();
+                    } else {
+                        document.getElementById('results-subtitle').textContent = 'No se encontraron coincidencias';
+                        document.getElementById('clear-results-btn').classList.add('hidden');
+                        renderEmptyResults();
+                    }
+                } else {
+                    alert('Error en la búsqueda: ' + (data.detail || data.message || 'Error desconocido'));
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                if (error.message.includes('<!DOCTYPE')) {
+                    alert('Error: El servidor devolvió HTML en lugar de JSON. Verifica que el endpoint /api/search-face existe en tu backend.');
+                } else {
+                    alert('Error buscando la cara: ' + error.message);
+                }
+            } finally {
+                isSearching = false;
+            }
+        }
+
+        function clearResults() {
+            searchResults = [];
+            document.getElementById('results-subtitle').textContent = 'Realiza una búsqueda para ver resultados';
+            document.getElementById('clear-results-btn').classList.add('hidden');
+            renderEmptyResults();
+        }
+
+        // Rendering functions
+        function renderResults() {
+            const container = document.getElementById('results-container');
+            
+            if (searchResults.length === 0) {
+                renderEmptyResults();
+                return;
+            }
+
+            const resultsGrid = document.createElement('div');
+            resultsGrid.className = 'results-grid';
+
+            searchResults.forEach((result, index) => {
+                const resultCard = document.createElement('div');
+                resultCard.className = 'result-card';
+                resultCard.onclick = () => openPhoto(result.photo_id);
+
+                resultCard.innerHTML = '<div class="result-image">' +
+                        '<img src="' + API + '/image/photo/' + result.photo_id + '" alt="' + result.photo_filename + '"' +
+                             ' onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' +
+                        '<div class="result-placeholder" style="display: none;">🖼️</div>' +
+                        '<div class="result-rank">#' + (index + 1) + '</div>' +
+                        '<div class="result-similarity">' + Math.round(result.similarity * 100) + '%</div>' +
+                    '</div>' +
+                    '<div class="result-info">' +
+                        '<h4 class="result-title">' + result.photo_filename + '</h4>' +
+                        '<p class="result-score">Similitud: ' + Math.round(result.similarity * 100) + '%</p>' +
+                        '<p class="result-id">ID: ' + result.face_id.slice(0, 8) + '...</p>' +
+                    '</div>';
+
+                resultsGrid.appendChild(resultCard);
+            });
+
+            container.innerHTML = '';
+            container.appendChild(resultsGrid);
+        }
+
+        function renderEmptyResults() {
+            const container = document.getElementById('results-container');
+            container.innerHTML = '<div class="empty-state">' +
+                    '<div class="empty-icon">🎯</div>' +
+                    '<h3 class="empty-title">No hay resultados</h3>' +
+                    '<p class="empty-subtitle">Usa la cámara para buscar coincidencias</p>' +
+                '</div>';
+        }
+
+        function openPhoto(photoId) {
+            window.open(API + '/image/photo/' + photoId, '_blank');
+        }
+
+        // Clean up webcam when page is unloaded
+        window.addEventListener('beforeunload', function() {
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>

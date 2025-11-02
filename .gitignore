@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Logs
+*.log
+
+# Base de datos y datos persistentes
+photos.db
+chroma_db/
+uploads/
+faces/
+models/
+
+# Archivos de entorno
+.env
+
+# IDEs
+.vscode/
+.idea/
