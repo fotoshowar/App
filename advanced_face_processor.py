@@ -34,23 +34,25 @@ class AdvancedFaceProcessor:
     4. MTCNN - Detección precisa de caras
     """
     
+   # advanced_face_processor.py
+
+class AdvancedFaceProcessor:
     def __init__(self, device='cpu'):
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
         logger.info(f"Usando dispositivo: {self.device}")
         
-        # --- ¡CAMBIO CLAVE PARA PYINSTALLER! ---
-        # Determinar la ruta base de la aplicación, tanto si es un script como un ejecutable.
+        # --- ¡SOLUCIÓN DEFINITIVA PARA LA RUTA! ---
         if getattr(sys, 'frozen', False):
             # Si estamos corriendo como un .exe de PyInstaller
-            base_path = os.path.dirname(sys.executable)
+            # La carpeta 'models' está DENTRO de '_internal', pero en una subcarpeta específica.
+            base_path = sys._MEIPASS
+            self.models_dir = os.path.join(base_path, 'face_recognition_models', 'models')
         else:
             # Si estamos corriendo el script directamente (para desarrollo)
             base_path = os.path.dirname(os.path.abspath(__file__))
+            self.models_dir = os.path.join(base_path, 'models')
         
-        # Crear la ruta a la carpeta 'models' de forma segura
-        self.models_dir = os.path.join(base_path, 'models')
-        
-        # Crear el directorio de modelos si no existe
+        # Crear el directorio de modelos si no existe (más importante para el modo desarrollo)
         os.makedirs(self.models_dir, exist_ok=True)
         logger.info(f"Directorio de modelos configurado en: {self.models_dir}")
         
