@@ -2,6 +2,12 @@
 
 block_cipher = None
 
+# --- CÁLCULO DE RUTAS ANTES DE ANÁLISIS ---
+# Aquí sí podemos usar código Python normal para calcular la ruta.
+import face_recognition_models
+import os
+model_source_path = os.path.join(os.path.dirname(face_recognition_models.__file__), 'models')
+
 # --- ANÁLISIS ---
 a = Analysis(
     ['main.py'],
@@ -11,10 +17,7 @@ a = Analysis(
         ('static', 'static'),
         ('models', 'models'),
         # --- ¡SOLUCIÓN DEFINITIVA Y GARANTIZADA! ---
-        # Añadimos la carpeta de modelos de la librería usando la ruta que encontramos.
-        import face_recognition_models
-        import os
-        model_source_path = os.path.join(os.path.dirname(face_recognition_models.__file__), 'models')
+        # Usamos la variable que calculamos antes.
         (model_source_path, 'face_recognition_models/models'),
     ],
     hiddenimports=[
@@ -52,7 +55,7 @@ a = Analysis(
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
-)
+),
 
 # --- CREACIÓN DE LOS COMPONENTES ---
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
