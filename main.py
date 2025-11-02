@@ -36,14 +36,24 @@ from cryptography.hazmat.backends import default_backend
 import hkdf
 import chromadb
 from chromadb.config import Settings
+import configparser
 
-# --- CONFIGURACIÓN ---
-BASE_URL = "https://external-extends-authorization-sphere.trycloudflare.com/"
-UPLOAD_DIR = Path("uploads")
-FACES_DIR = Path("faces")
-CHROMA_DB_PATH = Path("chroma_db")
-DB_PATH = "photos.db"
-OLD_JSON_PATH = Path("products_metadata.json")
+# Cargar configuración desde config.ini
+config = configparser.ConfigParser()
+# Asegurarse de que funcione tanto en desarrollo como en el ejecutable
+config_path = 'config.ini'
+if getattr(sys, 'frozen', False):
+    # Si está corriendo como ejecutable de PyInstaller
+    config_path = os.path.join(sys._MEIPASS, 'config.ini')
+config.read(config_path)
+
+# --- VARIABLES GLOBALES DE CONFIGURACIÓN ---
+BASE_URL = config.get('general', 'base_url')
+WHATSAPP_API_TOKEN = config.get('whatsapp', 'api_token')
+WHATSAPP_API_URL = config.get('whatsapp', 'api_url')
+WHATSAPP_WEBHOOK_SECRET = config.get('whatsapp', 'webhook_secret')
+
+
 
 # Directorios
 for directory in [UPLOAD_DIR, FACES_DIR]:
@@ -1663,11 +1673,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("Presiona Ctrl+C para detener")
     print("=" * 60)
-    
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8888,
-        reload=False,
-        log_level="info"
-    )
+
+    import uvicorn
+    # Usamos las variables del archivo de configuración
+    uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)
