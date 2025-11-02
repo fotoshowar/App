@@ -59,4 +59,4 @@ jobs:
     # Paso 4: Ejecutar PyInstaller para crear el ejecutable
     - name: Build with PyInstaller
       run: |
-        pyinstaller face_rec
+        pyinstaller face_recognition.spec --clean
