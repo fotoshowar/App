@@ -21,10 +21,6 @@ a = Analysis(
         ('models', 'models'),
 
     
-        # --- ¡CORRECCIÓN CLAVE PARA EL ERROR DE MODELOS! ---
-        # Le dice a PyInstaller que busque la carpeta 'models' dentro de la librería
-        # 'face_recognition_models' y la incluya. Esto resuelve el RuntimeError.
-        ('face_recognition_models/models', 'face_recognition_models/models'),
     ],
     hiddenimports=[
         # --- LIBRERÍAS OCULTAS ---
