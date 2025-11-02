@@ -1,5 +1,5 @@
 # Nombre del flujo de trabajo
-name: Build Executables
+name: Build Executable for Windows
 
 # Se dispara cuando haces push a la rama main
 on:
@@ -9,12 +9,14 @@ on:
 # Tareas a ejecutar
 jobs:
   build:
-    # Estrategia: ejecutar esta tarea en múltiples sistemas operativos
+    # Estrategia: ejecutar esta tarea solo para Windows
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # --- ¡CAMBIO CLAVE! ---
+        # Solo especificamos Windows, eliminando Ubuntu y macOS.
+        os: [windows-latest]
 
-    # Usa la última versión de Ubuntu/Windows/macOS
+    # Usa la última versión de Windows Server
     runs-on: ${{ matrix.os }}
     # Aumenta el tiempo límite a 60 minutos por si acaso
     timeout-minutes: 60
@@ -44,7 +46,7 @@ jobs:
         
         # 2. Crear un archivo de requisitos LIMPIO en tiempo de ejecución.
         #    Esto elimina CUALQUIER paquete con 'nvidia' o 'cuda' en el nombre,
-        #    evitando conflictos en macOS y asegurando la compatibilidad en todos los SO.
+        #    evitando conflictos y asegurando la compatibilidad.
         grep -v "nvidia\|cuda" requirements.txt > requirements_clean.txt
         
         # 3. Instalar las dependencias desde el archivo limpio y seguro
@@ -54,21 +56,7 @@ jobs:
         pip install pyinstaller
       shell: bash
 
-    # Paso 4: Ejecutar PyInstaller para crear los ejecutables
+    # Paso 4: Ejecutar PyInstaller para crear el ejecutable
     - name: Build with PyInstaller
       run: |
-        pyinstaller face_recognition.spec --clean
-
-    # Paso 5: Subir los artefactos (los ejecutables) para su descarga
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        # Nombre del zip que se descargará, dinámico según el SO
-        name: face-recognition-app-${{ matrix.os }}
-        # Ruta a la carpeta o archivo a subir. PyInstaller en modo COLLECT crea una carpeta.
-        path: |
-          dist/face_recognition_app.exe
-          dist/face_recognition_app
-          dist/face_recognition_app.app
-        # Conserva los artefactos por 30 días
-        retention-days: 30
+        pyinstaller face_rec
