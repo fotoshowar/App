@@ -3,39 +3,38 @@
 block_cipher = None
 
 # --- ANÁLISIS ---
-# PyInstaller analiza main.py y sigue las importaciones.
-# Esta sección encuentra todas las dependencias (librerías, scripts, etc.).
+# Importamos la librería para poder encontrar su ruta de instalación
+import face_recognition_models
+import os
+
+# Obtenemos la ruta a la carpeta 'models' DENTRO de la librería instalada
+model_source_path = os.path.join(os.path.dirname(face_recognition_models.__file__), 'models')
+
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=[
         # --- ARCHIVOS Y CARPETAS DE DATOS ---
-        # Aquí le decimos a PyInstaller qué carpetas y archivos adicionales debe empaquetar.
-        # Formato: ('ruta_origen', 'ruta_destino_en_el_ejecutable')
-
-        # Copia la carpeta 'static' (con tus archivos HTML) a la raíz del ejecutable.
+        # Estos son los archivos que son parte de TU proyecto.
         ('static', 'static'),
-
-        # Copia la carpeta 'models' (para los modelos de dlib que se descargan) a la raíz.
         ('models', 'models'),
-
-    
+        
+        # --- ¡SOLUCIÓN DEFINITIVA Y GARANTIZADA! ---
+        # Añadimos la carpeta de modelos de la librería usando la ruta que encontramos.
+        # Formato: ('ruta_origen_real', 'ruta_destino_en_el_ejecutable')
+        (model_source_path, 'face_recognition_models/models'),
     ],
+    # --- ¡ELIMINAMOS collect_data! ---
+    # Ya no lo necesitamos porque estamos añadiendo los datos manualmente.
     hiddenimports=[
-        # --- LIBRERÍAS OCULTAS ---
-        # PyInstaller a veces no encuentra estas librerías automáticamente.
-        # Las listamos aquí para asegurarnos de que se incluyan.
-
-        # Dependencias de FastAPI/Uvicorn
+        # ... (el resto de tu lista de hiddenimports se queda igual)
         'uvicorn.lifespan.on',
         'uvicorn.lifespan.off',
         'uvicorn.protocols.websockets.auto',
         'uvicorn.protocols.http.auto',
         'uvicorn.protocols.websockets.wsproto_impl',
         'starlette',
-
-        # Dependencias de Procesamiento Facial y ML
         'face_recognition_models',
         'dlib',
         'torch',
@@ -48,9 +47,7 @@ a = Analysis(
         'sklearn.metrics.pairwise',
         'insightface',
         'facenet_pytorch',
-        'PIL', # Pillow, usada por torchvision y otras librerías
-
-        # Dependencias de Base de Datos y Utilidades
+        'PIL',
         'aiosqlite',
         'cryptography',
         'hkdf',
@@ -66,7 +63,8 @@ a = Analysis(
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
-)
+),
+
 
 # --- CREACIÓN DE LOS COMPONENTES ---
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
