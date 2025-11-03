@@ -46,9 +46,6 @@ else:
 
 print(f"Aplicación corriendo desde: {APPLICATION_PATH}")
 
-model_data_path = os.path.join(base_path, 'face_recognition_models', 'models')
-face_recognition_models.model_path = model_data_path
-
 # --- CONFIGURACIÓN ---
 BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com"
 # --- RUTAS A LAS CARPETAS DE DATOS (CORREGIDO) ---
