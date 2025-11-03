@@ -52,7 +52,11 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
-
+# --- NUEVA SECCIÓN PARA BINARIOS ---
+binaries=[
+    ('opencv_videoio_ffmpeg.dll', 'opencv_world.dll', 'opencv_python3.dll'),
+]
+# ...
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
