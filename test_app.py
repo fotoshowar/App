@@ -1,11 +1,20 @@
-# test_app.py
+  # test_app.py
 import pytest
 import os
 import sys
 import configparser
 from fastapi.testclient import TestClient
 from main import app  # Importa tu aplicación FastAPI
+from pathlib import Path
 
+# Añadir esta línea si no está
+try:
+    from main import APPLICATION_PATH
+except ImportError:
+    # Si falla, la variable no está disponible, la definimos aquí como fallback para las pruebas.
+    # Esto es poco probable si el entorno de pruebas no puede importar main.py directamente.
+    APPLICATION_PATH = Path.cwd() # Fallback para pruebas
+    print(f"AVISO: APPLICATION_PATH no se pudo importar. Usando fallback: {APPLICATION_PATH}")
   # --- Prueba 2: Verificar la inicialización del procesador facial ---
 def test_advanced_face_processor_initialization():
     """Verifica que el AdvancedFaceProcessor puede inicializar sus rutas."""
