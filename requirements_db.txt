@@ -6,3 +6,4 @@ aiosqlite
 chromadb
 Pillow
 opencv-python 
+cryptography
