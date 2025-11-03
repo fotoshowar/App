@@ -1,3 +1,4 @@
+# requirements_db.txt
 fastapi
 uvicorn[standard]
 python-multipart
@@ -5,5 +6,9 @@ aiofiles
 aiosqlite
 chromadb
 Pillow
-opencv-python 
+opencv-python
 cryptography
+# --- Posibles dependencias faltantes (añadir estas) ---
+pyparsing       # A menudo requerida por Pillow y otras librerías de procesamiento
+numpy            # Fundamental para OpenCV y operaciones numéricas
+hkdf
