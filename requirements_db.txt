@@ -4,11 +4,16 @@ uvicorn[standard]
 python-multipart
 aiofiles
 aiosqlite
-chromadb
-Pillow
-opencv-python
-cryptography
-# --- Posibles dependencias faltantes (añadir estas) ---
-pyparsing       # A menudo requerida por Pillow y otras librerías de procesamiento
-numpy            # Fundamental para OpenCV y operaciones numéricas
-httpx
+# chromadb
+# Pillow
+# opencv-python
+# cryptography
+# pyparsing
+# numpy
+# httpx
+# --- Librerías para Reconocimiento Facial ---
+face_recognition
+dlib
+# Opcional, si usas el AdvancedFaceProcessor
+# torch
+# torchvision
