@@ -1297,7 +1297,34 @@ async def get_face_image(face_id: str, request: Request):
         return Response(headers={"Content-Type": "image/jpeg", "Content-Length": str(face_filepath.stat().st_size)})
     
     return FileResponse(path=face_filepath, media_type="image/jpeg")
+# main.py (añade esto al final del archivo)
 
+@app.get("/debug-paths")
+async def debug_paths():
+    """Endpoint de depuración para verificar rutas clave."""
+    import sys
+    import os
+    import face_recognition_models
+    
+    debug_info = {
+        "sys.frozen": getattr(sys, 'frozen', False),
+        "sys.executable": sys.executable if getattr(sys, 'frozen', False) else "N/A (script mode)",
+        "sys._MEIPASS": sys._MEIPASS if getattr(sys, 'frozen', False) else "N/A (script mode)",
+        "os.getcwd()": os.getcwd(),
+        "APPLICATION_PATH (from main.py)": str(APPLICATION_PATH),
+    }
+    
+    # Comprobar la ruta del parche de face_recognition_models
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+        model_data_path = os.path.join(base_path, 'face_recognition_models', 'models')
+        debug_info["face_recognition_models.model_path"] = model_data_path
+        debug_info["face_recognition_models.models exists"] = os.path.exists(model_data_path)
+    else:
+        debug_info["face_recognition_models.model_path"] = "N/A (script mode)"
+        debug_info["face_recognition_models.models exists"] = "N/A (script mode)"
+
+    return debug_info
 @app.get("/faces/{face_id}")
 async def get_face_image_direct(face_id: str):
     try:
