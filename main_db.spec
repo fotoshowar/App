@@ -22,6 +22,7 @@ a = Analysis(
         'opencv-python',
         'cryptography',
         'hkdf',
+        'httpx',
         'numpy',
         'pyparsing',
         # Módulos de ChromaDB
