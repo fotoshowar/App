@@ -62,7 +62,7 @@ exe = EXE(
     a.datas,
     [],
     name='face_recognition_db',
-    debug=true,
+    debug=True,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
