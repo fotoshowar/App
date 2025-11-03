@@ -514,37 +514,3 @@ async def startup_event():
     logger.info("🚀 Ejecutando startup event: Inicializando base de datos...")
     await database.initialize()
     logger.info("✅ Aplicación lista para recibir peticiones.")
-
-# ============================================
-# EJECUCIÓN
-# ============================================
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print("Face Recognition API v5.3.0-SQLite-DB-Only")
-    print("=" * 60)
-    print("Servidor: http://localhost:8888")
-    print("Docs: http://localhost:8888/docs")
-    print("=" * 60)
-    print("AVISO: El reconocimiento facial está desactivado en esta versión.")
-    print("=" * 60)
-    print("Presiona Ctrl+C para detener")
-    print("=" * 60)
-    
-    try:
-        uvicorn.run(
-            "main_with_db:app",
-            host="0.0.0.0",
-            port=8888,
-            reload=False,
-            log_level="info"
-        )
-    except Exception as e:
-        print("\n" + "=" * 50)
-        print("¡OCURRIÓ UN ERROR!")
-        print("=" * 50)
-        traceback.print_exc()
-        print("=" * 50)
-    finally:
-        print("\nEl programa se ha detenido. Presiona Enter para salir...")
-        input()
