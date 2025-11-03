@@ -34,7 +34,7 @@ jobs:
     # Paso 4: Construir el ejecutable con PyInstaller
     - name: Build executable
       run: |
-        pyinstaller mainsimple_whith_db.spec
+        pyinstaller mainsimple_with_db.spec
     
     # Paso 5: Crear y subir el Release en un solo paso
     - name: Release and Upload Executable
