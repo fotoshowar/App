@@ -1,12 +1,19 @@
+# main_simple.spec
 # -*- mode: python ; coding: utf-8 -*-
 
 block_cipher = None
 
 # --- DATOS A INCLUIR ---
-# Aquí es donde le decimos a PyInstaller que incluya nuestra carpeta 'static'
 # El formato es: ('ruta_origen', 'ruta_destino_en_el_ejecutable')
+# Usamos una ruta absoluta para evitar cualquier duda
+import os
+import sys
+
+# Obtenemos la ruta del directorio actual donde se ejecuta PyInstaller
+current_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+
 added_files = [
-    ('static', 'static'),
+    (os.path.join(current_dir, 'static'), 'static'),
 ]
 
 a = Analysis(
@@ -40,14 +47,14 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='face_recognition_simple', # Nombre del ejecutable
+    name='face_recognition_simple',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # <-- ¡IMPORTANTE! Mantiene la ventana de consola visible
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
