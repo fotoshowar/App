@@ -9,7 +9,7 @@ import time
 import traceback
 import uuid
 import asyncio
-import cv2
+import cv2  # Lo mantenemos para obtener las dimensiones de la imagen
 import hashlib
 import httpx
 import numpy as np
@@ -26,15 +26,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 
-# --- NUEVOS IMPORTS ---
+# --- IMPORTS DE BASE DE DATOS ---
 import aiosqlite
-import base64
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
-import hkdf
-import chromadb
-from chromadb.config import Settings
-from face_detector import detect_faces_in_image, processor
 
 # --- RUTA BASE DE LA APLICACIÓN ---
 if getattr(sys, 'frozen', False):
@@ -56,7 +49,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('face_recognition.log', encoding='utf-8')
+        logging.FileHandler('photo_manager.log', encoding='utf-8') # Cambiado el nombre del log
     ]
 )
 logger = logging.getLogger(__name__)
@@ -64,24 +57,15 @@ logger = logging.getLogger(__name__)
 # --- CONFIGURACIÓN ---
 BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com"
 UPLOAD_DIR = APPLICATION_PATH / "uploads"
-FACES_DIR = APPLICATION_PATH / "faces"
-CHROMA_DB_PATH = APPLICATION_PATH / "chroma_db"
 STATIC_DIR = APPLICATION_PATH / "static"
+DB_PATH = APPLICATION_PATH / "photos.db" # Ruta más explícita para la BD
+OLD_JSON_PATH = APPLICATION_PATH / "products_metadata.json"
 
 # Asegurarse de que las carpetas existan
 UPLOAD_DIR.mkdir(exist_ok=True)
-FACES_DIR.mkdir(exist_ok=True)
-CHROMA_DB_PATH.mkdir(exist_ok=True)
-DB_PATH = "photos.db"
-OLD_JSON_PATH = Path("products_metadata.json")
+STATIC_DIR.mkdir(exist_ok=True)
 
-# Directorios
-for directory in [UPLOAD_DIR, FACES_DIR]:
-    directory.mkdir(exist_ok=True)
-
-CHROMA_DB_PATH.mkdir(exist_ok=True)
-
-# JSON serializer personalizado
+# JSON serializer personalizado (sin cambios)
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
@@ -110,9 +94,9 @@ def safe_convert_for_json(obj: Any) -> Any:
     else:
         return obj
 
-app = FastAPI(title="Advanced Face Recognition API", version="5.3.0-SQLite-DB-Only")
+app = FastAPI(title="Photo Manager API", version="6.0.0-SQLite-Only")
 
-# CORS
+# CORS (sin cambios)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -122,7 +106,7 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-# Middleware para ngrok
+# Middleware para ngrok (sin cambios)
 @app.middleware("http")
 async def ngrok_middleware(request: Request, call_next):
     response = await call_next(request)
@@ -134,73 +118,22 @@ async def ngrok_middleware(request: Request, call_next):
     return response
 
 # ============================================
-# CLASE DE BASE DE DATOS (CON SQLITE)
+# CLASE DE BASE DE DATOS (SOLO SQLITE)
 # ============================================
 
-class ChromaFaceDatabase:
+class PhotoDatabase:
+    """Maneja todas las operaciones de la base de datos SQLite para fotos."""
     def __init__(self):
-        self.chroma_client = None
-        self.face_collection = None
         self.db_path = DB_PATH
         logger.info("🗄️ Inicializando base de datos SQLite...")
         logger.info("⏳ La inicialización asíncrona de la BD se ejecutará en el startup event.")
 
     async def initialize(self):
         await self._setup_database()
-        logger.info("🧹 Ejecutando autolimpieza y verificación de datos huérfanos...")
-        try:
-            orphaned_count = await self._cleanup_orphaned_faces()
-            if orphaned_count > 0:
-                logger.warning(f"🗑️ Se encontraron y eliminaron {orphaned_count} registros de caras huérfanas al iniciar.")
-        except Exception as e:
-            logger.error(f"Error durante la limpieza de caras huérfanas: {e}")
-        
-        try:
-            invalid_id_count = await self._cleanup_invalid_product_ids()
-            if invalid_id_count > 0:
-                logger.warning(f"🗑️ Se encontraron y eliminaron {invalid_id_count} registros con product_id inválido.")
-        except Exception as e:
-            logger.error(f"Error durante la limpieza de IDs inválidos: {e}")
-
-        self._verify_database_consistency()
-        logger.info("✅ Conectado a ChromaDB y SQLite (Modo Híbrido y Atómico)")
+        await self._migrate_from_json()
+        logger.info("✅ Base de datos SQLite inicializada y lista.")
 
     async def _setup_database(self):
-        await self._init_db()
-        await self._migrate_from_json()
-        self._init_chromadb()
-
-    def _init_chromadb(self):
-        try:
-            self.chroma_client = chromadb.PersistentClient(
-                path=str(CHROMA_DB_PATH)
-            )
-            self.face_collection = self.chroma_client.get_or_create_collection(
-                name="face_detections",
-                metadata={"hnsw:space": "cosine"}
-            )
-            logger.info("✅ ChromaDB inicializado correctamente")
-        except Exception as e:
-            logger.error(f"Error inicializando ChromaDB: {e}")
-            try:
-                logger.info("Intentando recrear ChromaDB...")
-                if CHROMA_DB_PATH.exists():
-                    shutil.rmtree(CHROMA_DB_PATH)
-                CHROMA_DB_PATH.mkdir(exist_ok=True)
-                
-                self.chroma_client = chromadb.PersistentClient(
-                    path=str(CHROMA_DB_PATH)
-                )
-                self.face_collection = self.chroma_client.get_or_create_collection(
-                    name="face_detections",
-                    metadata={"hnsw:space": "cosine"}
-                )
-                logger.info("✅ ChromaDB recreado e inicializado correctamente")
-            except Exception as retry_error:
-                logger.error(f"Error incluso al recrear ChromaDB: {retry_error}")
-                raise retry_error
-
-    async def _init_db(self):
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS photos (
@@ -213,6 +146,7 @@ class ChromaFaceDatabase:
                     file_size INTEGER
                 )
             """)
+            # Mantenemos la tabla de búsquedas, aunque no se use, por si se activa en el futuro
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS searched_clients (
                     id TEXT PRIMARY KEY,
@@ -258,17 +192,9 @@ class ChromaFaceDatabase:
         else:
             logger.info("📄 products_metadata.json no encontrado. Iniciando con base de datos SQLite nueva.")
 
-    async def _cleanup_invalid_product_ids(self) -> int:
-        return 0
-
-    async def _cleanup_orphaned_faces(self) -> int:
-        return 0
-
-    def _verify_database_consistency(self):
-        logger.info("✅ Verificación de consistencia entre SQLite y ChromaDB completada.")
-
-    async def add_photo_like_old_system(self, photo_id: str, filename: str, filepath: str, faces_data: List[Dict]):
-        logger.info(f"🚀 Iniciando guardado ATÓMICO para la foto: {photo_id}")
+    async def add_photo(self, photo_id: str, filename: str, filepath: str):
+        """Añade una nueva foto a la base de datos."""
+        logger.info(f"🚀 Guardando metadatos para la foto: {photo_id}")
         try:
             img = cv2.imread(filepath)
             image_height, image_width = img.shape[:2] if img is not None else (0, 0)
@@ -281,44 +207,37 @@ class ChromaFaceDatabase:
                 """, (photo_id, filename, filepath, datetime.now().isoformat(), image_width, image_height, file_size))
                 await db.commit()
             logger.info(f"✅ Metadatos para la foto {photo_id} guardados en SQLite.")
-
+            return True
         except Exception as e:
             logger.error(f"❌ ERROR FATAL durante el guardado de la foto {photo_id}: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
-            raise e
+            return False
 
-    async def get_all_photos_like_old_system(self) -> List[Dict]:
+    async def get_all_photos(self) -> List[Dict]:
+        """Obtiene todas las fotos de la base de datos."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("SELECT * FROM photos ORDER BY upload_date DESC")
             photos = [dict(row) for row in await cursor.fetchall()]
-            
-            for photo in photos:
-                photo['faces_count'] = 0
-            
         return photos
 
-    async def get_photo_like_old_system(self, photo_id: str) -> Optional[Dict]:
+    async def get_photo(self, photo_id: str) -> Optional[Dict]:
+        """Obtiene una foto específica por su ID."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("SELECT * FROM photos WHERE id = ?", (photo_id,))
             row = await cursor.fetchone()
             return dict(row) if row else None
 
-    async def get_faces_by_photo_id(self, photo_id: str) -> List[Dict]:
-        return []
-
-    async def update_face_info_like_old_system(self, face_id: str, name: str, notes: str) -> bool:
-        return False
-
-    async def delete_photo_like_old_system(self, photo_id: str) -> Dict:
+    async def delete_photo(self, photo_id: str) -> Dict:
+        """Elimina una foto de la base de datos y del sistema de archivos."""
         try:
-            photo_data = await self.get_photo_like_old_system(photo_id)
+            photo_data = await self.get_photo(photo_id)
             if not photo_data:
-                return {'success': False, 'error': 'Foto no encontrada', 'faces_deleted': 0}
+                return {'success': False, 'error': 'Foto no encontrada'}
             
             try:
-                Path(photo_data['filepath']).unlink()
+                Path(photo_data['filepath']).unlink(missing_ok=True)
             except Exception as e:
                 logger.warning(f"No se pudo borrar archivo de producto: {e}")
 
@@ -327,53 +246,41 @@ class ChromaFaceDatabase:
                 await db.commit()
             
             logger.info(f"Foto {photo_id} eliminada de SQLite.")
-            return {'success': True, 'faces_deleted': 0}
+            return {'success': True}
         except Exception as e:
             logger.error(f"Error eliminando foto: {e}")
-            return {'success': False, 'error': str(e), 'faces_deleted': 0}
+            return {'success': False, 'error': str(e)}
 
-    async def get_stats_like_old_system(self) -> Dict:
+    async def get_stats(self) -> Dict:
+        """Obtiene estadísticas simples de la base de datos."""
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute("SELECT COUNT(*) FROM photos")
             total_photos = (await cursor.fetchone())[0]
         
-        total_faces = 0
-        
-        return {'total_photos': total_photos, 'total_faces': total_faces}
+        return {'total_photos': total_photos}
 
     async def get_product_filepath(self, photo_id: str) -> Optional[str]:
+        """Obtiene la ruta del archivo de una foto."""
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute("SELECT filepath FROM photos WHERE id = ?", (photo_id,))
             row = await cursor.fetchone()
             return row[0] if row else None
 
-    def get_face_filepath(self, face_id: str) -> Optional[str]:
-        return None
-
-    async def add_searched_client(self, client_id: str, phone_number: str, face_image_path: str, best_match_photo_id: str = None, best_match_similarity: float = 0.0):
-        return True
-
-    async def get_all_searched_clients(self) -> List[Dict]:
-        return []
-
-    async def get_recent_searches_by_phone(self, phone_number: str, hours: int = 24) -> List[Dict]:
-        return []
-
 # ============================================
 # VARIABLES GLOBALES E INSTANCIAS
 # ============================================
 
-database = ChromaFaceDatabase()
+database = PhotoDatabase()
 
 # ============================================
-# ENDPOINTS DE LA API (ACTUALIZADOS A ASYNC)
+# ENDPOINTS DE LA API
 # ============================================
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_index():
     """Sirve el index.html desde la carpeta static."""
     try:
-        html_path = Path("static/index.html")
+        html_path = STATIC_DIR / "index.html"
         if html_path.exists():
             return FileResponse(html_path)
         else:
@@ -386,7 +293,7 @@ async def serve_index():
 async def serve_admin():
     """Sirve el html_update_ngrok.html desde la carpeta static."""
     try:
-        html_path = Path("static/html_update_ngrok.html")
+        html_path = STATIC_DIR / "html_update_ngrok.html"
         if html_path.exists():
             return FileResponse(html_path)
         else:
@@ -395,62 +302,65 @@ async def serve_admin():
         logger.error(f"Error sirviendo el panel de admin: {e}")
         return HTMLResponse("<h1>Error del servidor</h1>", status_code=500)
 
-# app.py
 @app.get("/api-status")
 async def api_status():
-    database_stats = await database.get_stats_like_old_system()
+    database_stats = await database.get_stats()
     return {
-        "message": "Face Recognition API v5.3.0-SQLite-With-Detection",
+        "message": "Photo Manager API v6.0.0-SQLite-Only",
         "status": "running",
         "database": database_stats,
-        "system": processor.get_system_status(), # <-- ¡NUEVO!
         "features": {
-            "face_detection": True, # <-- ¡CAMBIADO!
-            "face_comparison": False, # Todavía no implementado
+            "face_detection": False, # <-- ¡IMPORTANTE!
+            "face_comparison": False,
             "photo_upload": True,
             "database": True
         }
     }
-# app.py
+
 @app.post("/api/upload-photo")
 async def upload_photo(file: UploadFile = File(...)):
+    """Sube una foto, la guarda y registra sus metadatos en la BD."""
     try:
-        # ... (código de validación y guardado de archivo) ...
+        # Validar tipo de archivo
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="El archivo debe ser una imagen.")
         
-        # --- CAMBIO CLAVE ---
-        # Ahora sí llamamos a nuestro detector
-        faces_data = detect_faces_in_image(str(filepath))
+        # Generar un ID único y nombre de archivo
+        photo_id = str(uuid.uuid4())
+        file_extension = Path(file.filename).suffix
+        safe_filename = f"{photo_id}{file_extension}"
+        filepath = UPLOAD_DIR / safe_filename
         
-        await database.add_photo_like_old_system(photo_id, file.filename or "unknown.jpg", str(filepath), faces_data)
+        # Guardar el archivo en el disco
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Guardar metadatos en la base de datos (SIN DETECCIÓN DE ROSTROS)
+        success = await database.add_photo(photo_id, file.filename or "unknown.jpg", str(filepath))
         
-        # --- CAMBIO CLAVE EN EL RETORNO ---
-        return {"success": True, "message": "Foto procesada y guardada", "photo_id": photo_id, "faces_detected": len(faces_data)}
+        if not success:
+            # Si falla la BD, borramos el archivo para no dejar huérfanos
+            filepath.unlink(missing_ok=True)
+            raise HTTPException(status_code=500, detail="Error al guardar en la base de datos.")
         
+        return {"success": True, "message": "Foto subida y guardada", "photo_id": photo_id}
+        
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         logger.error(f"Error upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
-
 @app.get("/api/photos")
 async def get_photos():
-    photos = await database.get_all_photos_like_old_system()
+    photos = await database.get_all_photos()
     return {"success": True, "photos": photos}
-
-@app.get("/api/photos/{photo_id}/faces")
-async def get_photo_faces(photo_id: str):
-    photo = await database.get_photo_like_old_system(photo_id)
-    if not photo:
-        raise HTTPException(status_code=404, detail="Foto no encontrada")
-    
-    return {"success": True, "photo_id": photo_id, "faces_count": 0, "faces": []}
 
 @app.delete("/api/photos/{photo_id}")
 async def delete_photo(photo_id: str):
-    result = await database.delete_photo_like_old_system(photo_id)
+    result = await database.delete_photo(photo_id)
     if result['success']:
-        return {"success": True, "message": "Foto eliminada correctamente", "photo_id": photo_id, "faces_deleted": result['faces_deleted']}
+        return {"success": True, "message": "Foto eliminada correctamente", "photo_id": photo_id}
     else:
         raise HTTPException(status_code=404, detail=result.get('error', 'Foto no encontrada'))
 
