@@ -48,9 +48,17 @@ face_recognition_models.model_path = model_data_path
 
 # --- CONFIGURACIÓN ---
 BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com"
-UPLOAD_DIR = Path("uploads")
-FACES_DIR = Path("faces")
-CHROMA_DB_PATH = Path("chroma_db")
+# --- RUTAS A LAS CARPETAS DE DATOS (CORREGIDO) ---
+# Usamos la variable APPLICATION_PATH que definimos antes.
+# Esto asegura que las carpetas siempre estén al lado del ejecutable.
+UPLOAD_DIR = APPLICATION_PATH / "uploads"
+FACES_DIR = APPLICATION_PATH / "faces"
+CHROMA_DB_PATH = APPLICATION_PATH / "chroma_db"
+
+# Asegurarse de que las carpetas existan
+UPLOAD_DIR.mkdir(exist_ok=True)
+FACES_DIR.mkdir(exist_ok=True)
+CHROMA_DB_PATH.mkdir(exist_ok=True)
 DB_PATH = "photos.db"
 OLD_JSON_PATH = Path("products_metadata.json")
 
