@@ -43,8 +43,12 @@ if getattr(sys, 'frozen', False):
     APPLICATION_PATH = Path(sys.executable).parent
 else:
     APPLICATION_PATH = Path(__file__).parent
-
+    base_path = APPLICATION_PATH
 print(f"Aplicación corriendo desde: {APPLICATION_PATH}")
+# Corregir la ruta de los modelos
+model_data_path = os.path.join(base_path, 'face_recognition_models', 'models')
+face_recognition_models.model_path = model_data_path
+
 
 # --- CONFIGURACIÓN ---
 BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com"
