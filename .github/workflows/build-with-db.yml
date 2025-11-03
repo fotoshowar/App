@@ -1,5 +1,5 @@
 # .github/workflows/build-with-db.yml
-name: Build and Release (With Database Version)
+name: Build and Release (DB Version - Debug)
 
 on:
   push:
@@ -27,31 +27,48 @@ jobs:
         pip install -r requirements_db.txt
         pip install pyinstaller
     
+    # --- PASO DE CONSTRUCCIÓN MEJORADO ---
     - name: Build executable
       run: |
-        pyinstaller main_with_db.spec
+        echo "🔨 Iniciando construcción con PyInstaller..."
+        pyinstaller main_db.spec --log-level DEBUG
+        echo "🔨 Construcción finalizada."
     
-    - name: List output files
-      run: Get-ChildItem -Path ./dist -Force # <-- COMANDO CORREGIDO PARA WINDOWS
+    # --- PASO DE VERIFICACIÓN CLAVE ---
+    - name: Verify build output
+      run: |
+        echo "📂 Listando contenido de la carpeta 'dist':"
+        Get-ChildItem -Path ./dist -Force | Format-Table -AutoSize
+        echo "----------------------------------------------------"
+        echo "🔍 Verificando si el ejecutable existe..."
+        if (Test-Path "./dist/face_recognition_db.exe") {
+          echo "✅ ÉXITO: El ejecutable 'face_recognition_db.exe' fue encontrado."
+        } else {
+          echo "❌ ERROR: El ejecutable 'face_recognition_db.exe' NO fue encontrado."
+          echo "Revisa los logs del paso 'Build executable' para ver qué salió mal."
+          exit 1 # <-- ¡ESTO DETENDRÁ EL WORKFLOW SI EL .EXE NO EXISTE!
+        }
     
+    # --- ESTE PASO SOLO SE EJECUTARÁ SI EL ANTERIOR TUVO ÉXITO ---
     - name: Upload executable as artifact
+      if: success() # <-- Condición para que solo se ejecute si el paso anterior no falló
       uses: actions/upload-artifact@v4
       with:
-        name: face_recognition_with_db_exe
-        path: ./dist/face_recognition_with_db.exe
+        name: face_recognition_db_exe
+        path: ./dist/face_recognition_db.exe
     
+    # --- ESTE PASO TAMBIÉN SE EJECUTARÁ SOLO SI HUBO ÉXITO ---
     - name: Release and Upload Executable
+      if: success() # <-- Condición para que solo se ejecute si el paso anterior no falló
       uses: softprops/action-gh-release@v1
       with:
-        name: Database Version Build #${{ github.run_number }}
         tag_name: db-nightly-${{ github.run_number }}
+        release_name: Database Version Build #${{ github.run_number }}
         body: |
           Versión con base de datos y carga de fotos.
           **Build:** #${{ github.run_number }}
           **Commit:** [${{ github.sha }}](${{ github.sha }})
-          
-          Permite subir y gestionar fotos en la base de datos local.
         prerelease: true
-        files: ./dist/face_recognition_with_db.exe
+        files: ./dist/face_recognition_db.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
