@@ -11,4 +11,4 @@ cryptography
 # --- Posibles dependencias faltantes (añadir estas) ---
 pyparsing       # A menudo requerida por Pillow y otras librerías de procesamiento
 numpy            # Fundamental para OpenCV y operaciones numéricas
-hkdf
+httpx
