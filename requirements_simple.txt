@@ -1,5 +1,8 @@
-# requirements_simple.txt
+# requirements_db.txt
 fastapi
 uvicorn[standard]
 python-multipart
 aiofiles
+aiosqlite
+chromadb
+Pillow
