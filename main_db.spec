@@ -1,15 +1,18 @@
 # main_db.spec
-# -*- mode: python ; coding: utf-8 -*-
-
-block_cipher = None
-
+# ...
 # --- DATOS A INCLUIR ---
-# Incluimos la carpeta estática y el nuevo archivo app.py
 added_files = [
     ('static', 'static'),
     ('app.py', '.'),
 ]
 
+# --- SECCIÓN BINARIOS (MEJORADA) ---
+# PyInstaller buscará estas DLLs en las rutas comunes de instalación de Python y las incluirá.
+binaries = [
+    ('opencv_videoio_ffmpeg.dll', 'opencv_world.dll', 'opencv_python3.dll'),
+]
+
+# --- SECCIÓN HIDDENIMPORTS ---
 a = Analysis(
     ['main_db.py'],
     pathex=[],
@@ -19,29 +22,14 @@ a = Analysis(
         'uvicorn',
         'aiosqlite',
         'PIL',
-        'opencv-python',
-        'cryptography',
-        'hkdf',
-        'httpx',
         'numpy',
         'pyparsing',
-        # Módulos de ChromaDB
-        'chromadb',
-        'chromadb.api',
-        'chromadb.api.segment',
-        'chromadb.db',
-        'chromadb.db.index',
-        'chromadb.db.index.hnsw',
-        'chromadb.db.index.hnsw.lib',
-        'chromadb.utils',
-        'chromadb.telemetry.product.posthog',
-        'chromadb.api.rust',
-        'chromadb.api.rust.abi',
-        'chromadb.api.rust.utils',
-        'chromadb.auth',
-        'chromadb.auth.token_provider',
-        'chromadb.auth.token_provider.simple_token_provider',
-        'chromadb.auth.utils',
+        'httpx',
+        'face_recognition',
+        'dlib',
+        # Opcional
+        'torch',
+        'torchvision',
     ],
     hookspath=[],
     hooksconfig={},
@@ -52,11 +40,7 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
-# --- NUEVA SECCIÓN PARA BINARIOS ---
-binaries=[
-    ('opencv_videoio_ffmpeg.dll', 'opencv_world.dll', 'opencv_python3.dll'),
-]
-# ...
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
