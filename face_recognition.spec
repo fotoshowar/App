@@ -39,7 +39,6 @@ a = Analysis(
         'pydantic',
     ],
     hookspath=['hooks'], # <-- ¡LÍNEA CLAVE! Le decimos a PyInstaller que busque hooks en nuestra carpeta.
-    hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
