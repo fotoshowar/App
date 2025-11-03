@@ -34,6 +34,7 @@ from cryptography.hazmat.backends import default_backend
 import hkdf
 import chromadb
 from chromadb.config import Settings
+from face_detector import detect_faces_in_image, processor
 
 # --- RUTA BASE DE LA APLICACIÓN ---
 if getattr(sys, 'frozen', False):
@@ -394,63 +395,43 @@ async def serve_admin():
         logger.error(f"Error sirviendo el panel de admin: {e}")
         return HTMLResponse("<h1>Error del servidor</h1>", status_code=500)
 
+# app.py
 @app.get("/api-status")
 async def api_status():
     database_stats = await database.get_stats_like_old_system()
     return {
-        "message": "Face Recognition API v5.3.0-SQLite-DB-Only",
+        "message": "Face Recognition API v5.3.0-SQLite-With-Detection",
         "status": "running",
         "database": database_stats,
+        "system": processor.get_system_status(), # <-- ¡NUEVO!
         "features": {
-            "face_detection": False,
-            "face_comparison": False,
+            "face_detection": True, # <-- ¡CAMBIADO!
+            "face_comparison": False, # Todavía no implementado
             "photo_upload": True,
             "database": True
         }
     }
-
+# app.py
 @app.post("/api/upload-photo")
 async def upload_photo(file: UploadFile = File(...)):
     try:
-        if not file.content_type or not file.content_type.startswith('image/'):
-            raise HTTPException(status_code=400, detail="Debe ser imagen")
+        # ... (código de validación y guardado de archivo) ...
         
-        photo_id = str(uuid.uuid4())
-        file_extension = os.path.splitext(file.filename or "image.jpg")[1].lower()
-        if not file_extension:
-            file_extension = ".jpg"
+        # --- CAMBIO CLAVE ---
+        # Ahora sí llamamos a nuestro detector
+        faces_data = detect_faces_in_image(str(filepath))
         
-        filename = f"{photo_id}{file_extension}"
-        filepath = UPLOAD_DIR / filename
-        content = await file.read()
+        await database.add_photo_like_old_system(photo_id, file.filename or "unknown.jpg", str(filepath), faces_data)
         
-        try:
-            from PIL import Image, ImageOps
-            
-            img_pil = Image.open(io.BytesIO(content))
-            img_pil.verify() 
-            img_pil = Image.open(io.BytesIO(content))
-
-            try:
-                img_pil = ImageOps.exif_transpose(img_pil)
-            except Exception as e:
-                logger.warning(f"No se pudo corregir la orientación con exif_transpose: {e}. Continuando con la imagen original.")
-
-            if img_pil.mode != 'RGB':
-                img_pil = img_pil.convert('RGB')
-
-            img_pil.save(filepath, 'JPEG', quality=85)
-            
-        except Exception as e:
-            logger.error(f"Error PIL: {e}")
-            return {"success": False, "message": "Imagen corrupta o no válida", "photo_id": photo_id, "faces_detected": 0}
+        # --- CAMBIO CLAVE EN EL RETORNO ---
+        return {"success": True, "message": "Foto procesada y guardada", "photo_id": photo_id, "faces_detected": len(faces_data)}
         
-        await database.add_photo_like_old_system(photo_id, file.filename or "unknown.jpg", str(filepath), [])
-        
-        return {"success": True, "message": "Foto procesada y guardada", "photo_id": photo_id, "faces_detected": 0}
     except Exception as e:
         logger.error(f"Error upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
 
 @app.get("/api/photos")
 async def get_photos():
