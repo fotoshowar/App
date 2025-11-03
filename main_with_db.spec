@@ -1,26 +1,30 @@
-# main_with_db.spec
+# main_db.spec
 # -*- mode: python ; coding: utf-8 -*-
 
 block_cipher = None
 
+# --- DATOS A INCLUIR ---
+# Incluimos la carpeta estática y el nuevo archivo app.py
 added_files = [
     ('static', 'static'),
+    ('app.py', '.'), # <-- ¡IMPORTANTE! Incluye el archivo de la aplicación
 ]
 
 a = Analysis(
-    ['main_with_db.py'],
+    ['main_db.py'], # <-- El punto de entrada es el nuevo lanzador
     pathex=[],
     binaries=[],
     datas=added_files,
     hiddenimports=[
         'uvicorn',
-        'uvicorn.lifespan.on',
-        'uvicorn.protocols.http.h11_impl',
         'aiosqlite',
-        'hkdf',
         'chromadb',
         'PIL',
-        'PIL._imagingtk',
+        'opencv-python',
+        'cryptography',
+        'hkdf',
+        'numpy',
+        'pyparsing',
     ],
     hookspath=[],
     hooksconfig={},
@@ -41,7 +45,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='face_recognition_with_db',
+    name='face_recognition_db', # <-- Un nuevo nombre para el ejecutable
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
