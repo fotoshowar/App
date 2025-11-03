@@ -45,12 +45,35 @@ else:
 
 print(f"Aplicación corriendo desde: {APPLICATION_PATH}")
 
+# Forzar la codificación a UTF-8 para la salida estándar (consola)
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('face_recognition.log', encoding='utf-8') # Forzar UTF-8 también para el archivo
+    ]
+)
+logger = logging.getLogger(__name__)
+# ...
 # --- CONFIGURACIÓN ---
 BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com" # Ajusta si es necesario
 UPLOAD_DIR = APPLICATION_PATH / "uploads"
 FACES_DIR = APPLICATION_PATH / "faces"
 CHROMA_DB_PATH = APPLICATION_PATH / "chroma_db"
+# Asegurarse de que la ruta sea absoluta para evitar problemas
+STATIC_DIR = APPLICATION_PATH / "static"
 
+if STATIC_DIR.exists():
+    print(f"Montando archivos estáticos desde: {STATIC_DIR}")
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+else:
+    print(f"ADVERTENCIA: La carpeta 'static' no fue encontrada en {STATIC_DIR}. El frontend no funcionará.")
+# ...
 # Asegurarse de que las carpetas existan
 UPLOAD_DIR.mkdir(exist_ok=True)
 FACES_DIR.mkdir(exist_ok=True)
