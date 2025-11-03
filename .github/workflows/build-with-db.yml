@@ -32,7 +32,7 @@ jobs:
         pyinstaller main_with_db.spec
     
     - name: List output files
-      run: ls -la ./dist
+      run: Get-ChildItem -Path ./dist -Force # <-- COMANDO CORREGIDO PARA WINDOWS
     
     - name: Upload executable as artifact
       uses: actions/upload-artifact@v4
@@ -43,7 +43,6 @@ jobs:
     - name: Release and Upload Executable
       uses: softprops/action-gh-release@v1
       with:
-        # CAMBIO CLAVE: Usamos 'name' en lugar de 'release_name'
         name: Database Version Build #${{ github.run_number }}
         tag_name: db-nightly-${{ github.run_number }}
         body: |
