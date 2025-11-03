@@ -2,23 +2,14 @@
 
 block_cipher = None
 
-# --- CÁLCULO DE RUTAS ANTES DE ANÁLISIS ---
-# Aquí sí podemos usar código Python normal para calcular la ruta.
-import face_recognition_models
-import os
-model_source_path = os.path.join(os.path.dirname(face_recognition_models.__file__), 'models')
-
-# --- ANÁLISIS ---
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=[
+        # Solo necesitamos añadir las carpetas de NUESTRO proyecto.
         ('static', 'static'),
         ('models', 'models'),
-        # --- ¡SOLUCIÓN DEFINITIVA Y GARANTIZADA! ---
-        # Usamos la variable que calculamos antes.
-        (model_source_path, 'face_recognition_models/models'),
     ],
     hiddenimports=[
         'uvicorn.lifespan.on',
@@ -47,6 +38,7 @@ a = Analysis(
         'httpx',
         'pydantic',
     ],
+    hookspath=['hooks'], # <-- ¡LÍNEA CLAVE! Le decimos a PyInstaller que busque hooks en nuestra carpeta.
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -57,10 +49,8 @@ a = Analysis(
     noarchive=False,
 ),
 
-# --- CREACIÓN DE LOS COMPONENTES ---
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# --- ESTRUCTURA DE EJECUTABLE Y CARPETA PORTÁTIL ---
 exe = EXE(
     pyz,
     a.scripts,
@@ -79,7 +69,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-)
+),
 
 coll = COLLECT(
     exe,
