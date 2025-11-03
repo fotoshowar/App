@@ -1,4 +1,4 @@
-# main_with_db.py
+# app.py
 import io
 import json
 import logging
@@ -55,25 +55,18 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('face_recognition.log', encoding='utf-8') # Forzar UTF-8 también para el archivo
+        logging.FileHandler('face_recognition.log', encoding='utf-8')
     ]
 )
 logger = logging.getLogger(__name__)
-# ...
+
 # --- CONFIGURACIÓN ---
-BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com" # Ajusta si es necesario
+BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com"
 UPLOAD_DIR = APPLICATION_PATH / "uploads"
 FACES_DIR = APPLICATION_PATH / "faces"
 CHROMA_DB_PATH = APPLICATION_PATH / "chroma_db"
-# Asegurarse de que la ruta sea absoluta para evitar problemas
 STATIC_DIR = APPLICATION_PATH / "static"
 
-if STATIC_DIR.exists():
-    print(f"Montando archivos estáticos desde: {STATIC_DIR}")
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-else:
-    print(f"ADVERTENCIA: La carpeta 'static' no fue encontrada en {STATIC_DIR}. El frontend no funcionará.")
-# ...
 # Asegurarse de que las carpetas existan
 UPLOAD_DIR.mkdir(exist_ok=True)
 FACES_DIR.mkdir(exist_ok=True)
@@ -115,17 +108,6 @@ def safe_convert_for_json(obj: Any) -> Any:
         return bool(obj)
     else:
         return obj
-
-# Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('face_recognition.log')
-    ]
-)
-logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Advanced Face Recognition API", version="5.3.0-SQLite-DB-Only")
 
@@ -276,11 +258,9 @@ class ChromaFaceDatabase:
             logger.info("📄 products_metadata.json no encontrado. Iniciando con base de datos SQLite nueva.")
 
     async def _cleanup_invalid_product_ids(self) -> int:
-        # ... (código de limpieza sin cambios)
         return 0
 
     async def _cleanup_orphaned_faces(self) -> int:
-        # ... (código de limpieza sin cambios)
         return 0
 
     def _verify_database_consistency(self):
@@ -288,8 +268,6 @@ class ChromaFaceDatabase:
 
     async def add_photo_like_old_system(self, photo_id: str, filename: str, filepath: str, faces_data: List[Dict]):
         logger.info(f"🚀 Iniciando guardado ATÓMICO para la foto: {photo_id}")
-        temp_chroma_ids_to_delete = []
-        
         try:
             img = cv2.imread(filepath)
             image_height, image_width = img.shape[:2] if img is not None else (0, 0)
@@ -303,10 +281,6 @@ class ChromaFaceDatabase:
                 await db.commit()
             logger.info(f"✅ Metadatos para la foto {photo_id} guardados en SQLite.")
 
-            # En esta versión, no procesamos caras, pero guardamos un registro vacío en ChromaDB si es necesario
-            # o simplemente lo omitimos. Por ahora, lo omitimos.
-            logger.info(f"✅ Foto {photo_id} guardada sin procesamiento de rostros.")
-
         except Exception as e:
             logger.error(f"❌ ERROR FATAL durante el guardado de la foto {photo_id}: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
@@ -318,7 +292,6 @@ class ChromaFaceDatabase:
             cursor = await db.execute("SELECT * FROM photos ORDER BY upload_date DESC")
             photos = [dict(row) for row in await cursor.fetchall()]
             
-            # Como no hay caras, el conteo es 0
             for photo in photos:
                 photo['faces_count'] = 0
             
@@ -332,11 +305,9 @@ class ChromaFaceDatabase:
             return dict(row) if row else None
 
     async def get_faces_by_photo_id(self, photo_id: str) -> List[Dict]:
-        # En esta versión, siempre devolvemos una lista vacía
         return []
 
     async def update_face_info_like_old_system(self, face_id: str, name: str, notes: str) -> bool:
-        # No hay caras que actualizar
         return False
 
     async def delete_photo_like_old_system(self, photo_id: str) -> Dict:
@@ -365,7 +336,6 @@ class ChromaFaceDatabase:
             cursor = await db.execute("SELECT COUNT(*) FROM photos")
             total_photos = (await cursor.fetchone())[0]
         
-        # No hay caras en esta versión
         total_faces = 0
         
         return {'total_photos': total_photos, 'total_faces': total_faces}
@@ -377,12 +347,9 @@ class ChromaFaceDatabase:
             return row[0] if row else None
 
     def get_face_filepath(self, face_id: str) -> Optional[str]:
-        # No hay caras en esta versión
         return None
 
-    # Métodos de searched_clients se mantienen pero no se usan activamente
     async def add_searched_client(self, client_id: str, phone_number: str, face_image_path: str, best_match_photo_id: str = None, best_match_similarity: float = 0.0):
-        # Implementación vacía o se puede mantener si se planea usar en el futuro
         return True
 
     async def get_all_searched_clients(self) -> List[Dict]:
@@ -478,7 +445,6 @@ async def upload_photo(file: UploadFile = File(...)):
             logger.error(f"Error PIL: {e}")
             return {"success": False, "message": "Imagen corrupta o no válida", "photo_id": photo_id, "faces_detected": 0}
         
-        # En esta versión, no detectamos caras, así que pasamos una lista vacía
         await database.add_photo_like_old_system(photo_id, file.filename or "unknown.jpg", str(filepath), [])
         
         return {"success": True, "message": "Foto procesada y guardada", "photo_id": photo_id, "faces_detected": 0}
@@ -497,7 +463,6 @@ async def get_photo_faces(photo_id: str):
     if not photo:
         raise HTTPException(status_code=404, detail="Foto no encontrada")
     
-    # En esta versión, siempre devolvemos una lista vacía de caras
     return {"success": True, "photo_id": photo_id, "faces_count": 0, "faces": []}
 
 @app.delete("/api/photos/{photo_id}")
@@ -526,7 +491,12 @@ async def get_photo_image(photo_id: str, request: Request):
     
     return FileResponse(path=filepath, media_type="image/jpeg")
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Montar archivos estáticos
+if STATIC_DIR.exists():
+    print(f"Montando archivos estáticos desde: {STATIC_DIR}")
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+else:
+    print(f"ADVERTENCIA: La carpeta 'static' no fue encontrada en {STATIC_DIR}. El frontend no funcionará.")
 
 # ============================================
 # EJECUCIÓN Y STARTUP EVENT
@@ -537,3 +507,5 @@ async def startup_event():
     logger.info("🚀 Ejecutando startup event: Inicializando base de datos...")
     await database.initialize()
     logger.info("✅ Aplicación lista para recibir peticiones.")
+
+# --- EL ARCHIVO TERMINA AQUÍ. SIN BLOQUE if __name__ == "__main__": ---
