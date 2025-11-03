@@ -16,7 +16,7 @@ jobs:
     steps:
     # Paso 1: Descargar el código del repositorio
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
     
     # Paso 2: Configurar Python 3.9
     - name: Set up Python 3.9
@@ -44,7 +44,7 @@ jobs:
     
     # Paso 6: Subir el ejecutable como artifact
     - name: Upload executable as artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: face_recognition_with_db_exe
         path: ./dist/face_recognition_with_db.exe
