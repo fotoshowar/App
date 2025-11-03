@@ -7,25 +7,24 @@ block_cipher = None
 # Incluimos la carpeta estática y el nuevo archivo app.py
 added_files = [
     ('static', 'static'),
-    ('app.py', '.'), # <-- ¡IMPORTANTE! Incluye el archivo de la aplicación
+    ('app.py', '.'),
 ]
 
 a = Analysis(
-    ['main_db.py'], # <-- El punto de entrada es el nuevo lanzador
+    ['main_db.py'],
     pathex=[],
     binaries=[],
     datas=added_files,
     hiddenimports=[
         'uvicorn',
         'aiosqlite',
-        'chromadb',
         'PIL',
         'opencv-python',
         'cryptography',
         'hkdf',
         'numpy',
         'pyparsing',
-         --- MÓDULOS FALTANTES DE CHROMADB ---
+        # Módulos de ChromaDB
         'chromadb',
         'chromadb.api',
         'chromadb.api.segment',
@@ -62,7 +61,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='face_recognition_db', # <-- Un nuevo nombre para el ejecutable
+    name='face_recognition_db',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
