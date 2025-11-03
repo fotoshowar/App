@@ -4,16 +4,13 @@ name: Build and Release (Simple Version)
 on:
   push:
     branches: [ main ] # Se activa con cada push a la rama main
-  release:
-    types: [ created ] # Se activa cuando se crea un nuevo release
-  # Opcional: También se puede activar con tags específicos
-  # push:
-  #   tags:
-  #     - 'simple-v*'
+
+# --- PUNTO CLAVE: DAR PERMISOS EXPLÍCITOS ---
+permissions:
+  contents: write # Permite que el workflow cree releases y suba archivos
 
 jobs:
   build:
-    # Usamos la imagen de Windows para construir el ejecutable para Windows
     runs-on: windows-latest
     
     steps:
@@ -31,44 +28,33 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # Usamos el archivo de requisitos simple para una instalación más rápida
         pip install -r requirements_simple.txt
-        pip install pyinstaller # Instalamos PyInstaller para construir el ejecutable
+        pip install pyinstaller
     
     # Paso 4: Construir el ejecutable con PyInstaller
     - name: Build executable
       run: |
-        # Usamos el archivo .spec que ya configuramos para la versión simple
         pyinstaller main_simple.spec
     
-    # Paso 5: Crear un Release en GitHub (si no existe uno)
-    # Este paso es opcional si ya creas los releases manualmente
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Paso 5: Crear y subir el Release en un solo paso
+    - name: Release and Upload Executable
+      uses: softprops/action-gh-release@v1 # <-- Acción más moderna y simple
       with:
-        # Usa el tag del push si existe, si no, crea un tag de nightly
-        tag_name: ${{ github.ref_name || 'simple-nightly' }}
-        release_name: Simple Frontend Release ${{ github.ref_name || 'Nightly' }}
+        # Crea un nombre de tag único para cada ejecución
+        tag_name: simple-nightly-${{ github.run_number }}
+        # El nombre del release que se mostrará en GitHub
+        release_name: Simple Frontend Build #${{ github.run_number }}
+        # El cuerpo del mensaje del release
         body: |
           Versión simple de la aplicación de reconocimiento facial.
+          **Build:** #${{ github.run_number }}
+          **Commit:** [${{ github.sha }}](${{ github.sha }})
+          
           Solo sirve el frontend para pruebas de interfaz.
-        draft: false
-        prerelease: false
-    
-    # Paso 6: Subir el ejecutable como un asset del Release
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
+        # Indica que no es un release final (opcional)
+        prerelease: true
+        # La ruta al archivo que queremos subir
+        files: ./dist/face_recognition_simple.exe
       env:
+        # Necesario para que la acción funcione
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        # La URL para subir el asset la obtenemos del paso anterior
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        # La ruta al ejecutable que PyInstaller creó
-        asset_path: ./dist/face_recognition_simple.exe
-        # El nombre que tendrá el archivo en la página de releases
-        asset_name: face_recognition_simple.exe
-        # El tipo de contenido del archivo
-        asset_content_type: application/vnd.microsoft.portable-executable
