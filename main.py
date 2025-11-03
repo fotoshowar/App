@@ -1,4 +1,4 @@
-    # main.py - Versión Final Híbrica con Guardado Atómico y Depuración (Corregida)
+# main.py - Versión Final Híbrica con Guardado Atómico y Depuración (Corregida)
 
 import io
 import json
@@ -37,18 +37,76 @@ import hkdf
 import chromadb
 from chromadb.config import Settings
 import face_recognition_models
+
 # --- RUTA BASE DE LA APLICACIÓN ---
 # Esta es la carpeta donde se encuentra el ejecutable o el script.
 if getattr(sys, 'frozen', False):
     APPLICATION_PATH = Path(sys.executable).parent
+    # Para ejecutables empaquetados, los recursos están en sys._MEIPASS
+    base_path = sys._MEIPASS
 else:
     APPLICATION_PATH = Path(__file__).parent
+    # Para scripts, los recursos están en el mismo directorio
     base_path = APPLICATION_PATH
-print(f"Aplicación corriendo desde: {APPLICATION_PATH}")
-# Corregir la ruta de los modelos
-model_data_path = os.path.join(base_path, 'face_recognition_models', 'models')
-face_recognition_models.model_path = model_data_path
 
+print(f"Aplicación corriendo desde: {APPLICATION_PATH}")
+
+# CORRECCIÓN: Manejar correctamente las rutas de los modelos para ejecutables
+if getattr(sys, 'frozen', False):
+    # Para ejecutables, los modelos pueden estar en diferentes ubicaciones
+    # Intentamos varias rutas posibles
+    possible_model_paths = [
+        os.path.join(base_path, 'models'),  # Ruta común en ejecutables
+        os.path.join(base_path, 'face_recognition_models', 'models'),  # Ruta estándar
+        os.path.join(base_path, 'dlib_data'),  # Ruta para modelos de Dlib
+        os.path.join(APPLICATION_PATH, 'models'),  # Ruta alternativa
+        os.path.join(APPLICATION_PATH, 'face_recognition_models', 'models'),  # Ruta alternativa
+        os.path.join(APPLICATION_PATH, 'dlib_data'),  # Ruta alternativa para Dlib
+    ]
+    
+    # Buscar la ruta que contiene los archivos de modelo
+    model_data_path = None
+    dlib_data_path = None
+    
+    for path in possible_model_paths:
+        if os.path.exists(os.path.join(path, 'shape_predictor_68_face_landmarks.dat')):
+            model_data_path = path
+            break
+    
+    for path in possible_model_paths:
+        if os.path.exists(os.path.join(path, 'mmod_human_face_detector.dat')):
+            dlib_data_path = path
+            break
+    
+    if model_data_path is None:
+        # Si no encontramos los modelos, intentamos con la ruta estándar como último recurso
+        model_data_path = os.path.join(base_path, 'face_recognition_models', 'models')
+        print(f"ADVERTENCIA: No se encontraron los modelos de face_recognition en las rutas esperadas. Usando ruta por defecto: {model_data_path}")
+    
+    if dlib_data_path is None:
+        # Si no encontramos los modelos de Dlib, intentamos con la ruta estándar
+        dlib_data_path = os.path.join(base_path, 'dlib_data')
+        print(f"ADVERTENCIA: No se encontraron los modelos de Dlib en las rutas esperadas. Usando ruta por defecto: {dlib_data_path}")
+    
+    # Configurar las rutas de los modelos
+    face_recognition_models.model_path = model_data_path
+    
+    # Configurar la ruta de los modelos de Dlib si es necesario
+    try:
+        import dlib
+        if hasattr(dlib, 'shape_predictor'):
+            # No necesitamos hacer nada especial aquí, ya que face_recognition usará la ruta que configuramos
+            pass
+    except ImportError:
+        print("ADVERTENCIA: Dlib no está disponible")
+else:
+    # Para scripts, usamos la ruta estándar
+    model_data_path = os.path.join(base_path, 'face_recognition_models', 'models')
+    face_recognition_models.model_path = model_data_path
+
+print(f"Ruta de modelos de face_recognition: {model_data_path}")
+if 'dlib_data_path' in locals():
+    print(f"Ruta de modelos de Dlib: {dlib_data_path}")
 
 # --- CONFIGURACIÓN ---
 BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com"
