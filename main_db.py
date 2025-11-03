@@ -24,9 +24,8 @@ if __name__ == "__main__":
     print("=" * 60)
     
     try:
-        # Ejecuta la aplicación importada
         uvicorn.run(
-            app,  # <-- Usamos el objeto 'app' importado
+            app,
             host="0.0.0.0",
             port=8888,
             reload=False,
