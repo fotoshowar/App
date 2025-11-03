@@ -1,0 +1,5 @@
+# requirements_simple.txt
+fastapi
+uvicorn[standard]
+python-multipart
+aiofiles
