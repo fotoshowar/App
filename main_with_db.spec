@@ -17,6 +17,7 @@ a = Analysis(
         'uvicorn.lifespan.on',
         'uvicorn.protocols.http.h11_impl',
         'aiosqlite',
+        'hkdf',
         'chromadb',
         'PIL',
         'PIL._imagingtk',
