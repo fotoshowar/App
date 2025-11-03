@@ -36,7 +36,15 @@ from cryptography.hazmat.backends import default_backend
 import hkdf
 import chromadb
 from chromadb.config import Settings
+import face_recognition_models
 
+if getattr(sys, 'frozen', False):
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.dirname(__file__)
+
+model_data_path = os.path.join(base_path, 'face_recognition_models', 'models')
+face_recognition_models.model_path = model_data_path
 
 # --- CONFIGURACIÓN ---
 BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com"
