@@ -7,7 +7,6 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        # Solo necesitamos añadir las carpetas de NUESTRO proyecto.
         ('static', 'static'),
         ('models', 'models'),
     ],
@@ -38,7 +37,7 @@ a = Analysis(
         'httpx',
         'pydantic',
     ],
-    hookspath=['hooks'], # <-- ¡LÍNEA CLAVE! Le decimos a PyInstaller que busque hooks en nuestra carpeta.
+    hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
@@ -46,7 +45,7 @@ a = Analysis(
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
-),
+)
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
@@ -68,7 +67,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-),
+)
 
 coll = COLLECT(
     exe,
