@@ -16,7 +16,7 @@ jobs:
     steps:
     # Paso 1: Descargar el código del repositorio
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     # Paso 2: Configurar Python 3.9
     - name: Set up Python 3.9
