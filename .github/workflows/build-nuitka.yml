@@ -25,9 +25,15 @@ jobs:
           pip install -r requirements.txt
           pip install nuitka
 
-      - name: Build executable with Nuitka
+      - name: Build executable with Nuitka (sin datos)
         run: |
-          python -m nuitka --standalone --windows-disable-console --module-parameter=torch-disable-jit=yes --enable-plugin=no-qt --include-module=multipart --include-module=multipart.multipart --follow-import-to=uvicorn --follow-import-to=starlette --output-dir=dist --include-data-dir=templates --include-data-dir=static --include-data-dir=face_recognition_models main.py
+          python -m nuitka --standalone --windows-disable-console --module-parameter=torch-disable-jit=yes --enable-plugin=no-qt --include-module=multipart --include-module=multipart.multipart --follow-import-to=uvicorn --follow-import-to=starlette --output-dir=dist main.py
+
+      - name: Copy data directories to dist folder
+        run: |
+          xcopy /E /I /Y templates dist\
+          xcopy /E /I /Y static dist\
+          xcopy /E /I /Y face_recognition_models dist\
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
