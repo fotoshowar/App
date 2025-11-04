@@ -33,11 +33,11 @@ jobs:
       - name: Install Nuitka
         run: pip install nuitka
 
-      # 5. Ejecutar la compilación con Nuitka
       - name: Build executable with Nuitka
         run: |
-          python -m nuitka --standalone --windows-disable-console --module-parameter=torch-disable-jit=yes --enable-plugin=no-qt --include-module=multipart --include-module=multipart.multipart --follow-import-to=uvicorn --follow-import-to=starlette --include-data-dir=templates --include-data-dir=static --include-data-dir=face_recognition_models main.py
+          python -m nuitka --standalone --module-parameter=torch-disable-jit=yes --enable-plugin=no-qt --include-module=multipart --include-module=multipart.multipart --follow-import-to=uvicorn --follow-import-to=starlette --include-data-dir="${{ github.workspace }}/templates=${{ github.workspace }}/templates" --include-data-dir="${{ github.workspace }}/static=${{ github.workspace }}/static" --include-data-dir="${{ github.workspace }}/face_recognition_models=${{ github.workspace }}/face_recognition_models" main.py
 
+      
       # 6. Subir el resultado (la carpeta main.dist) como un "artefacto"
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
