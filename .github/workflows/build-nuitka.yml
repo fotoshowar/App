@@ -5,6 +5,7 @@ name: Build FotoShow with Nuitka
 on:
   push:
     branches: [ main ]
+  workflow_dispatch: # Te permite ejecutarlo manualmente desde la web de GitHub
 
 # Definimos el trabajo que se ejecutará en una máquina Windows
 jobs:
@@ -32,6 +33,11 @@ jobs:
       # 4. Ejecutar la compilación con Nuitka (¡el comando que ya funciona!)
       - name: Build executable with Nuitka
         run: |
-          python -m nuitka --standalone --windows-disable-console --module-parameter=torch-disable-jit=yes --enable-plugin=no-qt --include-module=multipart --include-module=multipart.multipart --follow-import-to=uvicorn --follow-import-to=starlette --include-data-dir=templates=templates --include-data-dir=static=static --include-data-dir=face_recognition_models=face_recognition_models main.py
+          python -m nuitka --standalone --windows-disable-console --module-parameter=torch-disable-jit=yes --enable-plugin=no-qt --include-module=multipart --include-module=multipart.multipart --follow-import-to=uvicorn --follow-import-to=starlette --include-data-dir="${{ github.workspace }}/templates=${{ github.workspace }}/templates" --include-data-dir="${{ github.workspace }}/static=${{ github.workspace }}/static" --include-data-dir="${{ github.workspace }}/face_recognition_models=${{ github.workspace }}/face_recognition_models" main.py
 
-      # 5. Subir el resultado (la carpeta main.dist) como un "artefacto
+      # 5. Subir el resultado (la carpeta main.dist) como un "artefacto"
+      - name: Upload executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-executable
+          path: main.dist/
