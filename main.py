@@ -1,5 +1,3 @@
-# main.py - Versión Final Híbrica con Guardado Atómico y Depuración (Corregida)
-
 import io
 import json
 import logging
@@ -15,6 +13,7 @@ import face_recognition
 import hashlib
 import httpx
 import numpy as np
+import codecs
 from collections import deque
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -36,113 +35,275 @@ from cryptography.hazmat.backends import default_backend
 import hkdf
 import chromadb
 from chromadb.config import Settings
-import face_recognition_models
 
-# --- RUTA BASE DE LA APLICACIÓN ---
-# Esta es la carpeta donde se encuentra el ejecutable o el script.
-if getattr(sys, 'frozen', False):
-    APPLICATION_PATH = Path(sys.executable).parent
-    # Para ejecutables empaquetados, los recursos están en sys._MEIPASS
-    base_path = sys._MEIPASS
-else:
-    APPLICATION_PATH = Path(__file__).parent
-    # Para scripts, los recursos están en el mismo directorio
-    base_path = APPLICATION_PATH
+import tempfile
+import traceback
+from fastapi import File, Form, HTTPException
 
-print(f"Aplicación corriendo desde: {APPLICATION_PATH}")
 
-# CORRECCIÓN: Manejar correctamente las rutas de los modelos para ejecutables
-if getattr(sys, 'frozen', False):
-    # Para ejecutables, los modelos pueden estar en diferentes ubicaciones
-    # Intentamos varias rutas posibles
-    possible_model_paths = [
-        os.path.join(base_path, 'models'),  # Ruta común en ejecutables
-        os.path.join(base_path, 'face_recognition_models', 'models'),  # Ruta estándar
-        os.path.join(base_path, 'dlib_data'),  # Ruta para modelos de Dlib
-        os.path.join(APPLICATION_PATH, 'models'),  # Ruta alternativa
-        os.path.join(APPLICATION_PATH, 'face_recognition_models', 'models'),  # Ruta alternativa
-        os.path.join(APPLICATION_PATH, 'dlib_data'),  # Ruta alternativa para Dlib
+
+
+
+# --- CONFIGURACIÓN CRÍTICA PARA PYINSTALLER ---
+# ESTE BLOQUE DEBE IR ANTES DE IMPORTAR face_recognition
+try:
+    if getattr(sys, 'frozen', False):
+        # Estamos en un ejecutable de PyInstaller
+        base_path = Path(sys._MEIPASS)
+    else:
+        # Estamos en modo desarrollo
+        base_path = Path(__file__).parent
+
+    # Construir la ruta completa a la carpeta de modelos
+    model_path = base_path / 'face_recognition_models' / 'models'
+    
+    # PASO 1: Importar la librería de soporte PRIMERO
+    import face_recognition_models
+
+    # PASO 2: Parchear su variable de ruta ANTES de que la use
+    face_recognition_models.model_path = str(model_path)
+    # --- FIN DE LA CONFIGURACIÓN CRÍTICA ---
+
+except Exception as e:
+    # Si esto falla, no podemos continuar
+    print(f"ERROR FATAL: No se pudieron configurar las rutas de los modelos: {e}")
+    sys.exit(1)
+
+
+
+# Añade esto después de los imports iniciales
+try:
+    import multipart
+except ImportError:
+    print("ERROR: La librería 'python-multipart' es necesaria pero no está instalada.")
+    print("Por favor, instálala con: pip install python-multipart")
+    sys.exit(1)
+
+
+
+# --- CONFIGURACIÓN DE CODIFICACIÓN PARA WINDOWS ---
+def configure_encoding():
+    """Configura la codificación para manejar correctamente Unicode en Windows"""
+    if sys.platform == 'win32':
+        # Forzar UTF-8 para la salida estándar
+        if hasattr(sys.stdout, 'buffer'):
+            sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+        if hasattr(sys.stderr, 'buffer'):
+            sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+        
+        # Configurar la variable de entorno para UTF-8
+        os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+# Llamar a la función de configuración de codificación
+configure_encoding()
+
+# --- CONFIGURACIÓN DE RUTAS BASE ---
+def get_application_paths():
+    """Obtiene las rutas base de la aplicación para desarrollo y ejecutable"""
+    if getattr(sys, 'frozen', False):
+        # Modo ejecutable compilado
+        application_path = Path(sys.executable).parent.resolve()
+        base_path = Path(sys._MEIPASS)  # Temporal donde PyInstaller extrae archivos
+        print(f"Modo ejecutable detectado")
+        print(f"Aplicación corriendo desde: {application_path}")
+        print(f"Ruta de recursos temporales: {base_path}")
+    else:
+        # Modo desarrollo
+        application_path = Path(__file__).parent.resolve()
+        base_path = application_path
+        print(f"Modo desarrollo detectado")
+        print(f"Aplicación corriendo desde: {application_path}")
+    
+    return application_path, base_path
+
+# Obtener rutas al inicio
+APPLICATION_PATH, base_path = get_application_paths()
+
+# --- CONFIGURACIÓN DE LOGGING CON UTF-8 ---
+def setup_logging():
+    """Configura el logging con soporte para UTF-8"""
+    log_file = APPLICATION_PATH / 'face_recognition.log'
+    
+    # Crear un formateador personalizado que maneje Unicode
+    class UnicodeFormatter(logging.Formatter):
+        def format(self, record):
+            # Asegurar que el mensaje sea Unicode
+            if isinstance(record.msg, bytes):
+                record.msg = record.msg.decode('utf-8', errors='replace')
+            return super().format(record)
+    
+    # Configurar handlers
+    handlers = [
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(log_file, encoding='utf-8')
     ]
     
-    # Buscar la ruta que contiene los archivos de modelo
+    # Configurar logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=handlers,
+        force=True  # Forzar reconfiguración
+    )
+    
+    # Aplicar formateador Unicode a todos los handlers
+    formatter = UnicodeFormatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    for handler in logging.root.handlers:
+        handler.setFormatter(formatter)
+    
+    return logging.getLogger(__name__)
+
+# Configurar logging al inicio
+logger = setup_logging()
+logger.info("Sistema de logging inicializado con soporte UTF-8")
+
+# --- CONFIGURACIÓN DE MODELOS (MEJORADA Y SIMPLIFICADA) ---
+def setup_model_paths():
+    """Configura las rutas de los modelos de forma robusta, priorizando la carpeta local."""
+    global model_data_path, dlib_data_path
+    
     model_data_path = None
     dlib_data_path = None
     
+    # Determinar la ruta base de la aplicación
+    if getattr(sys, 'frozen', False):
+        # Modo ejecutable: la carpeta donde está el .exe
+        application_base_path = Path(sys.executable).parent
+    else:
+        # Modo desarrollo: la carpeta del script
+        application_base_path = Path(__file__).parent
+    
+    # Priorizar la carpeta local al ejecutable
+    possible_model_paths = [
+        application_base_path / 'face_recognition_models' / 'models',  # Ruta prioritaria
+        application_base_path / 'models',                             # Ruta alternativa
+        application_base_path / 'dlib_data',                           # Ruta para dlib
+        # Las rutas antiguas se mantienen como fallback
+        base_path / 'models',
+        base_path / 'face_recognition_models' / 'models',
+        base_path / 'dlib_data',
+        APPLICATION_PATH / 'models',
+        APPLICATION_PATH / 'face_recognition_models' / 'models',
+        APPLICATION_PATH / 'dlib_data',
+    ]
+    
+    # Buscar modelos de face_recognition
     for path in possible_model_paths:
-        if os.path.exists(os.path.join(path, 'shape_predictor_68_face_landmarks.dat')):
-            model_data_path = path
+        if (path / 'shape_predictor_68_face_landmarks.dat').exists():
+            model_data_path = str(path)
+            logger.info(f"Modelos de face_recognition encontrados en: {model_data_path}")
             break
     
+    # Buscar modelos de Dlib
     for path in possible_model_paths:
-        if os.path.exists(os.path.join(path, 'mmod_human_face_detector.dat')):
-            dlib_data_path = path
+        if (path / 'mmod_human_face_detector.dat').exists():
+            dlib_data_path = str(path)
+            logger.info(f"Modelos de Dlib encontrados en: {dlib_data_path}")
             break
     
+    # Configurar rutas por defecto si no se encuentran
     if model_data_path is None:
-        # Si no encontramos los modelos, intentamos con la ruta estándar como último recurso
-        model_data_path = os.path.join(base_path, 'face_recognition_models', 'models')
-        print(f"ADVERTENCIA: No se encontraron los modelos de face_recognition en las rutas esperadas. Usando ruta por defecto: {model_data_path}")
+        model_data_path = str(application_base_path / 'face_recognition_models' / 'models')
+        logger.warning(f"ADVERTENCIA: No se encontraron los modelos de face_recognition. Usando ruta por defecto: {model_data_path}")
     
     if dlib_data_path is None:
-        # Si no encontramos los modelos de Dlib, intentamos con la ruta estándar
-        dlib_data_path = os.path.join(base_path, 'dlib_data')
-        print(f"ADVERTENCIA: No se encontraron los modelos de Dlib en las rutas esperadas. Usando ruta por defecto: {dlib_data_path}")
+        dlib_data_path = str(application_base_path / 'dlib_data')
+        logger.warning(f"ADVERTENCIA: No se encontraron los modelos de Dlib. Usando ruta por defecto: {dlib_data_path}")
     
-    # Configurar las rutas de los modelos
-    face_recognition_models.model_path = model_data_path
+    # Configurar face_recognition_models si está disponible
+    try:
+        import face_recognition_models
+        face_recognition_models.model_path = model_data_path
+        logger.info("face_recognition_models configurado correctamente")
+    except ImportError:
+        logger.warning("ADVERTENCIA: face_recognition_models no está disponible")
     
-    # Configurar la ruta de los modelos de Dlib si es necesario
+    # Verificar dlib
     try:
         import dlib
-        if hasattr(dlib, 'shape_predictor'):
-            # No necesitamos hacer nada especial aquí, ya que face_recognition usará la ruta que configuramos
-            pass
+        logger.info("dlib disponible")
     except ImportError:
-        print("ADVERTENCIA: Dlib no está disponible")
-else:
-    # Para scripts, usamos la ruta estándar
-    model_data_path = os.path.join(base_path, 'face_recognition_models', 'models')
-    face_recognition_models.model_path = model_data_path
+        logger.warning("ADVERTENCIA: dlib no está disponible")
+    
+    logger.info(f"Ruta final de modelos de face_recognition: {model_data_path}")
+    logger.info(f"Ruta final de modelos de Dlib: {dlib_data_path}")
 
-print(f"Ruta de modelos de face_recognition: {model_data_path}")
-if 'dlib_data_path' in locals():
-    print(f"Ruta de modelos de Dlib: {dlib_data_path}")
 
-# --- CONFIGURACIÓN ---
-BASE_URL = "https://besides-blue-klein-jungle.trycloudflare.com"
-# --- RUTAS A LAS CARPETAS DE DATOS (CORREGIDO) ---
-# Usamos la variable APPLICATION_PATH que definimos antes.
-# Esto asegura que las carpetas siempre estén al lado del ejecutable.
-UPLOAD_DIR = APPLICATION_PATH / "uploads"
-FACES_DIR = APPLICATION_PATH / "faces"
-CHROMA_DB_PATH = APPLICATION_PATH / "chroma_db"
+# --- CONFIGURACIÓN DE CARPETAS DE DATOS (MEJORADA) ---
+def setup_data_directories():
+    """Configura las carpetas de datos de forma robusta"""
+    global UPLOAD_DIR, FACES_DIR, CHROMA_DB_PATH, DB_PATH, OLD_JSON_PATH
+    
+    # Carpetas principales
+    UPLOAD_DIR = APPLICATION_PATH / "uploads"
+    FACES_DIR = APPLICATION_PATH / "faces"
+    CHROMA_DB_PATH = APPLICATION_PATH / "chroma_db"
+    DB_PATH = APPLICATION_PATH / "photos.db"
+    OLD_JSON_PATH = APPLICATION_PATH / "products_metadata.json"
+    
+    # Función para crear carpetas con fallback
+    def ensure_directory(path, folder_name):
+        try:
+            path.mkdir(exist_ok=True)
+            logger.info(f"Carpeta {folder_name}: {path}")
+            return path
+        except Exception as e:
+            logger.error(f"Error creando carpeta {folder_name}: {e}")
+            # Usar carpeta temporal como fallback
+            import tempfile
+            fallback_path = Path(tempfile.gettempdir()) / "FotoShow" / folder_name
+            fallback_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Usando carpeta alternativa para {folder_name}: {fallback_path}")
+            return fallback_path
+    
+    # Crear todas las carpetas necesarias
+    UPLOAD_DIR = ensure_directory(UPLOAD_DIR, "uploads")
+    FACES_DIR = ensure_directory(FACES_DIR, "faces")
+    CHROMA_DB_PATH = ensure_directory(CHROMA_DB_PATH, "chroma_db")
 
-# Asegurarse de que las carpetas existan
-UPLOAD_DIR.mkdir(exist_ok=True)
-FACES_DIR.mkdir(exist_ok=True)
-CHROMA_DB_PATH.mkdir(exist_ok=True)
-DB_PATH = "photos.db"
-OLD_JSON_PATH = Path("products_metadata.json")
+# --- FUNCIÓN DE INICIALIZACIÓN COMPLETA ---
+def initialize_application():
+    """Inicializa toda la configuración de la aplicación"""
+    print("\n" + "="*60)
+    print("INICIANDO CONFIGURACIÓN DE FOTOSHOW")
+    print("="*60)
+    
+    try:
+        # Configurar modelos
+        print("\nCONFIGURANDO MODELOS...")
+        setup_model_paths()
+        
+        # Configurar carpetas de datos
+        print("\nCONFIGURANDO CARPETAS DE DATOS...")
+        setup_data_directories()
+        
+        # Configurar URL base
+        print("\nCONFIGURANDO URL BASE...")
+        if getattr(sys, 'frozen', False):
+            BASE_URL = "http://127.0.0.1:8888"
+            print("Modo ejecutable detectado, usando localhost")
+        else:
+            BASE_URL = "https://communication-honolulu-ensures-difficulty.trycloudflare.com"
+            print("Modo desarrollo detectado, usando Cloudflare tunnel")
+        
+        print(f"URL base configurada: {BASE_URL}")
+        print("="*60)
+        print("CONFIGURACIÓN COMPLETADA EXITOSAMENTE")
+        print("="*60 + "\n")
+        
+        return BASE_URL
+        
+    except Exception as e:
+        print("="*60)
+        print("ERROR CRÍTICO EN LA INICIALIZACIÓN")
+        print(f"Error: {e}")
+        print("="*60)
+        raise e
 
-# Directorios
-for directory in [UPLOAD_DIR, FACES_DIR]:
-    directory.mkdir(exist_ok=True)
-
-# CORRECCIÓN: Asegurarse de que el directorio de ChromaDB exista
-CHROMA_DB_PATH.mkdir(exist_ok=True)
-
-# JSON serializer personalizado
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.integer):
-            return int(obj)
-        elif isinstance(obj, np.floating):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        elif isinstance(obj, (np.bool_, bool)):
-            return bool(obj)
-        return super().default(obj)
+# Ejecutar la inicialización
+BASE_URL = initialize_application()
 
 def safe_convert_for_json(obj: Any) -> Any:
     if isinstance(obj, dict):
@@ -159,17 +320,6 @@ def safe_convert_for_json(obj: Any) -> Any:
         return bool(obj)
     else:
         return obj
-
-# Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('face_recognition.log')
-    ]
-)
-logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Advanced Face Recognition API", version="5.3.0-SQLite")
 
@@ -193,88 +343,6 @@ async def ngrok_middleware(request: Request, call_next):
     response.headers["Access-Control-Allow-Methods"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "*"
     return response
-
-# ============================================
-# FUNCIÓN DE DESENCRIPTACIÓN DE WHATSAPP
-# ============================================
-
-def decrypt_whatsapp_media(encrypted_data: bytes, media_key_b64: str, 
-                           file_enc_sha256_b64: str, media_type: str = 'image') -> bytes:
-    """Desencripta medios de WhatsApp usando las claves proporcionadas."""
-    try:
-        logger.info("🔐 Iniciando desencriptación de medio de WhatsApp...")
-        
-        media_key = base64.b64decode(media_key_b64)
-        file_enc_sha256 = base64.b64decode(file_enc_sha256_b64)
-        
-        calculated_sha256 = hashlib.sha256(encrypted_data).digest()
-        if calculated_sha256 != file_enc_sha256:
-            raise ValueError("❌ Hash SHA256 no coincide. Archivo corrupto.")
-        logger.info("✅ Hash SHA256 verificado correctamente")
-        
-        media_type_info = {
-            'image': b'WhatsApp Image Keys',
-            'video': b'WhatsApp Video Keys',
-            'audio': b'WhatsApp Audio Keys',
-            'document': b'WhatsApp Document Keys'
-        }
-        info = media_type_info.get(media_type, b'WhatsApp Image Keys')
-        
-        derived = hkdf.hkdf_expand(
-            hkdf.hkdf_extract(b'', media_key, hashlib.sha256),
-            info,
-            112,
-            hashlib.sha256
-        )
-        
-        iv = derived[:16]
-        cipher_key = derived[16:48]
-        mac_key = derived[48:80]
-        
-        logger.info("✅ Claves derivadas con HKDF")
-        
-        encrypted_body = encrypted_data[:-10]
-        mac_from_file = encrypted_data[-10:]
-        
-        calculated_mac_v1 = hashlib.sha256(iv + encrypted_body + mac_key).digest()[:10]
-        calculated_mac_v2 = hashlib.sha256(encrypted_body + mac_key).digest()[:10]
-        calculated_mac_v3 = hashlib.sha256(mac_key + iv + encrypted_body).digest()[:10]
-        
-        mac_valid = False
-        if calculated_mac_v1 == mac_from_file:
-            logger.info("✅ MAC verificado (método v1)")
-            mac_valid = True
-        elif calculated_mac_v2 == mac_from_file:
-            logger.info("✅ MAC verificado (método v2)")
-            mac_valid = True
-        elif calculated_mac_v3 == mac_from_file:
-            logger.info("✅ MAC verificado (método v3)")
-            mac_valid = True
-        
-        if not mac_valid:
-            logger.warning("⚠️ MAC no coincide con ningún método conocido, intentando desencriptar de todos modos...")
-        
-        cipher = Cipher(
-            algorithms.AES(cipher_key),
-            modes.CBC(iv),
-            backend=default_backend()
-        )
-        decryptor = cipher.decryptor()
-        decrypted_data = decryptor.update(encrypted_body) + decryptor.finalize()
-        
-        padding_length = decrypted_data[-1]
-        if isinstance(padding_length, str):
-            padding_length = ord(padding_length)
-        decrypted_data = decrypted_data[:-padding_length]
-        
-        logger.info(f"✅ Desencriptación exitosa ({len(decrypted_data)} bytes)")
-        
-        return decrypted_data
-        
-    except Exception as e:
-        logger.error(f"❌ Error en desencriptación: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise
 
 # ============================================
 # CLASE DE PROCESAMIENTO FACIAL
@@ -399,7 +467,7 @@ class AdvancedFaceProcessorIntegration:
                                 }
                                 processed_faces.append(processed_face)
                             else:
-                                logger.warning(f"⚠️ Omitiendo cara {face_id} porque no se pudo generar un embedding estándar.")
+                                logger.warning(f"Omitiendo cara {face_id} porque no se pudo generar un embedding estándar.")
                     
                     logger.info(f"AdvancedFaceProcessor: {len(processed_faces)} caras procesadas y estandarizadas.")
                     return processed_faces
@@ -488,7 +556,7 @@ class AdvancedFaceProcessorIntegration:
                 
                 if not embeddings:
                     # Si no se puede generar un embedding real, omitimos esta cara para mantener consistencia
-                    logger.warning(f"⚠️ Omitiendo cara detectada por OpenCV {face_id} porque no se pudo generar un embedding compatible.")
+                    logger.warning(f"Omitiendo cara detectada por OpenCV {face_id} porque no se pudo generar un embedding compatible.")
                     continue
                 
                 face_data = {
@@ -547,28 +615,28 @@ class ChromaFaceDatabase:
         self.chroma_client = None
         self.face_collection = None
         self.db_path = DB_PATH
-        logger.info("🗄️ Inicializando base de datos SQLite...")
-        logger.info("⏳ La inicialización asíncrona de la BD se ejecutará en el startup event.")
+        logger.info("Inicializando base de datos SQLite...")
+        logger.info("La inicialización asíncrona de la BD se ejecutará en el startup event.")
 
     async def initialize(self):
         await self._setup_database()
-        logger.info("🧹 Ejecutando autolimpieza y verificación de datos huérfanos...")
+        logger.info("Ejecutando autolimpieza y verificación de datos huérfanos...")
         try:
             orphaned_count = await self._cleanup_orphaned_faces()
             if orphaned_count > 0:
-                logger.warning(f"🗑️ Se encontraron y eliminaron {orphaned_count} registros de caras huérfanas al iniciar.")
+                logger.warning(f"Se encontraron y eliminaron {orphaned_count} registros de caras huérfanas al iniciar.")
         except Exception as e:
             logger.error(f"Error durante la limpieza de caras huérfanas: {e}")
         
         try:
             invalid_id_count = await self._cleanup_invalid_product_ids()
             if invalid_id_count > 0:
-                logger.warning(f"🗑️ Se encontraron y eliminaron {invalid_id_count} registros con product_id inválido.")
+                logger.warning(f"Se encontraron y eliminaron {invalid_id_count} registros con product_id inválido.")
         except Exception as e:
             logger.error(f"Error durante la limpieza de IDs inválidos: {e}")
 
         self._verify_database_consistency()
-        logger.info("✅ Conectado a ChromaDB y SQLite (Modo Híbrido y Atómico)")
+        logger.info("Conectado a ChromaDB y SQLite (Modo Híbrido y Atómico)")
 
     async def _setup_database(self):
         await self._init_db()
@@ -584,7 +652,7 @@ class ChromaFaceDatabase:
                 name="face_detections",
                 metadata={"hnsw:space": "cosine"}
             )
-            logger.info("✅ ChromaDB inicializado correctamente")
+            logger.info("ChromaDB inicializado correctamente")
         except Exception as e:
             logger.error(f"Error inicializando ChromaDB: {e}")
             try:
@@ -600,7 +668,7 @@ class ChromaFaceDatabase:
                     name="face_detections",
                     metadata={"hnsw:space": "cosine"}
                 )
-                logger.info("✅ ChromaDB recreado e inicializado correctamente")
+                logger.info("ChromaDB recreado e inicializado correctamente")
             except Exception as retry_error:
                 logger.error(f"Error incluso al recrear ChromaDB: {retry_error}")
                 raise retry_error
@@ -633,7 +701,7 @@ class ChromaFaceDatabase:
 
     async def _migrate_from_json(self):
         if OLD_JSON_PATH.exists():
-            logger.info("🔄 Iniciando migración desde products_metadata.json a SQLite...")
+            logger.info("Iniciando migración desde products_metadata.json a SQLite...")
             try:
                 with open(OLD_JSON_PATH, 'r', encoding='utf-8') as f:
                     data = json.load(f)
@@ -654,23 +722,23 @@ class ChromaFaceDatabase:
                                 photo_data.get('file_size')
                             ))
                         await db.commit()
-                    logger.info(f"✅ Migración completada. Se migraron {len(data['photos'])} fotos.")
+                    logger.info(f"Migración completada. Se migraron {len(data['photos'])} fotos.")
                     os.rename(OLD_JSON_PATH, f"{OLD_JSON_PATH}.migrated")
                 else:
-                    logger.info("📄 products_metadata.json está vacío o no tiene fotos. No se requiere migración.")
+                    logger.info("products_metadata.json está vacío o no tiene fotos. No se requiere migración.")
             except Exception as e:
-                logger.error(f"❌ Error durante la migración desde JSON: {e}")
+                logger.error(f"Error durante la migración desde JSON: {e}")
         else:
-            logger.info("📄 products_metadata.json no encontrado. Iniciando con base de datos SQLite nueva.")
+            logger.info("products_metadata.json no encontrado. Iniciando con base de datos SQLite nueva.")
 
     async def _cleanup_invalid_product_ids(self) -> int:
         try:
-            logger.info("🔍 Iniciando limpieza de product_id inválidos...")
+            logger.info("Iniciando limpieza de product_id inválidos...")
             all_results = self.face_collection.get(include=['metadatas'])
             invalid_ids = []
             
             if not all_results or not all_results['ids']:
-                logger.info("🔍 No hay caras en la base de datos para limpiar.")
+                logger.info("No hay caras en la base de datos para limpiar.")
                 return 0
             
             for i, face_id in enumerate(all_results['ids']):
@@ -684,14 +752,14 @@ class ChromaFaceDatabase:
                 )
 
                 if is_invalid:
-                    logger.warning(f"👻 Cara con ID inválido encontrada y será eliminada: {face_id} (product_id: '{product_id}')")
+                    logger.warning(f"Cara con ID inválido encontrada y será eliminada: {face_id} (product_id: '{product_id}')")
                     invalid_ids.append(face_id)
             
             if invalid_ids:
                 self.face_collection.delete(ids=invalid_ids)
-                logger.info(f"🗑️ {len(invalid_ids)} caras con ID inválido eliminadas de ChromaDB.")
+                logger.info(f"{len(invalid_ids)} caras con ID inválido eliminadas de ChromaDB.")
             else:
-                logger.info("✅ No se encontraron caras con product_id inválido.")
+                logger.info("No se encontraron caras con product_id inválido.")
             
             return len(invalid_ids)
         except Exception as e:
@@ -717,12 +785,12 @@ class ChromaFaceDatabase:
                 product_id = metadata.get('product_id')
                 
                 if not product_id or product_id not in all_photo_ids:
-                    logger.warning(f"👻 Cara huérfana encontrada y será eliminada: {face_id} (product_id: {product_id})")
+                    logger.warning(f"Cara huérfana encontrada y será eliminada: {face_id} (product_id: {product_id})")
                     orphaned_ids.append(face_id)
             
             if orphaned_ids:
                 self.face_collection.delete(ids=orphaned_ids)
-                logger.info(f"🗑️ {len(orphaned_ids)} caras huérfanas eliminadas de ChromaDB.")
+                logger.info(f"{len(orphaned_ids)} caras huérfanas eliminadas de ChromaDB.")
             
             return len(orphaned_ids)
         except Exception as e:
@@ -730,10 +798,10 @@ class ChromaFaceDatabase:
             return 0
 
     def _verify_database_consistency(self):
-        logger.info("✅ Verificación de consistencia entre SQLite y ChromaDB completada por la limpieza de huérfanos.")
+        logger.info("Verificación de consistencia entre SQLite y ChromaDB completada por la limpieza de huérfanos.")
 
     async def add_photo_like_old_system(self, photo_id: str, filename: str, filepath: str, faces_data: List[Dict]):
-        logger.info(f"🚀 Iniciando guardado ATÓMICO para la foto: {photo_id}")
+        logger.info(f"Iniciando guardado ATÓMICO para la foto: {photo_id}")
         temp_chroma_ids_to_delete = []
         
         try:
@@ -747,10 +815,10 @@ class ChromaFaceDatabase:
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (photo_id, filename, filepath, datetime.now().isoformat(), image_width, image_height, file_size))
                 await db.commit()
-            logger.info(f"✅ Metadatos para la foto {photo_id} guardados en SQLite.")
+            logger.info(f"Metadatos para la foto {photo_id} guardados en SQLite.")
 
             if not faces_data:
-                logger.warning(f"⚠️ No hay caras para guardar para la foto {photo_id}.")
+                logger.warning(f"No hay caras para guardar para la foto {photo_id}.")
                 return
 
             ids = []
@@ -764,7 +832,7 @@ class ChromaFaceDatabase:
                     embedding = face_data['embeddings']['face_recognition']
                 
                 if embedding is None:
-                    logger.warning(f"⚠️ Omitiendo cara {face_data.get('face_id', 'N/A')} porque no tiene un embedding 'face_recognition' compatible.")
+                    logger.warning(f"Omitiendo cara {face_data.get('face_id', 'N/A')} porque no tiene un embedding 'face_recognition' compatible.")
                     continue
                 
                 ids.append(face_data['face_id'])
@@ -781,21 +849,21 @@ class ChromaFaceDatabase:
                 })
                 valid_faces_count += 1
             
-            logger.info(f"📊 Se prepararon {valid_faces_count} caras válidas para ChromaDB.")
+            logger.info(f"Se prepararon {valid_faces_count} caras válidas para ChromaDB.")
 
             # CORRECCIÓN: Verificación final de consistencia de dimensiones
             if embeddings:
                 first_dim = len(embeddings[0])
                 inconsistent_dims = [len(emb) for emb in embeddings if len(emb) != first_dim]
                 if inconsistent_dims:
-                    logger.error(f"❌ ERROR CRÍTICO: Inconsistencia de dimensiones encontrada. Dimensión esperada: {first_dim}, Dimensiones encontradas: {set(inconsistent_dims)}")
+                    logger.error(f"ERROR CRÍTICO: Inconsistencia de dimensiones encontrada. Dimensión esperada: {first_dim}, Dimensiones encontradas: {set(inconsistent_dims)}")
                     raise ValueError("Inconsistent dimensions in provided embeddings after final check.")
                 
-                logger.info(f"💾 Añadiendo {len(embeddings)} embeddings a ChromaDB (Dimensión: {first_dim})...")
+                logger.info(f"Añadiendo {len(embeddings)} embeddings a ChromaDB (Dimensión: {first_dim})...")
                 try:
                     self.face_collection.add(ids=ids, embeddings=embeddings, metadatas=metadatas)
                     temp_chroma_ids_to_delete = ids
-                    logger.info(f"✅ {len(embeddings)} embeddings guardados en ChromaDB.")
+                    logger.info(f"{len(embeddings)} embeddings guardados en ChromaDB.")
                 except Exception as e:
                     logger.error(f"Error al guardar en ChromaDB: {e}")
                     try:
@@ -807,36 +875,36 @@ class ChromaFaceDatabase:
                         )
                         self.face_collection.add(ids=ids, embeddings=embeddings, metadatas=metadatas)
                         temp_chroma_ids_to_delete = ids
-                        logger.info(f"✅ {len(embeddings)} embeddings guardados en ChromaDB después de recrear la colección.")
+                        logger.info(f"{len(embeddings)} embeddings guardados en ChromaDB después de recrear la colección.")
                     except Exception as retry_error:
                         logger.error(f"Error incluso al recrear la colección: {retry_error}")
                         raise e
             else:
-                logger.warning(f"⚠️ No se guardaron embeddings en ChromaDB.")
+                logger.warning(f"No se guardaron embeddings en ChromaDB.")
 
         except Exception as e:
-            logger.error(f"❌ ERROR FATAL durante el guardado de la foto {photo_id}: {e}")
+            logger.error(f"ERROR FATAL durante el guardado de la foto {photo_id}: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
             
-            logger.error("🔄 Iniciando ROLLBACK de ChromaDB...")
+            logger.error("Iniciando ROLLBACK de ChromaDB...")
             if temp_chroma_ids_to_delete:
                 try:
                     self.face_collection.delete(ids=temp_chroma_ids_to_delete)
-                    logger.info(f"🗑️ Embeddings añadidos a ChromaDB fueron eliminados durante el rollback.")
+                    logger.info(f"Embeddings añadidos a ChromaDB fueron eliminados durante el rollback.")
                 except Exception as delete_error:
-                    logger.error(f"❌ ERROR FATAL durante la eliminación de embeddings de ChromaDB: {delete_error}")
+                    logger.error(f"ERROR FATAL durante la eliminación de embeddings de ChromaDB: {delete_error}")
             
             raise e
 
     async def search_similar_faces(self, search_embeddings: Dict, threshold: float = 0.7, limit: int = 50) -> List[Dict]:
-        logger.info(f"🔍 Iniciando búsqueda HÍBRIDA (iterativa) con threshold={threshold}")
+        logger.info(f"Iniciando búsqueda HÍBRIDA (iterativa) con threshold={threshold}")
         try:
             search_embedding = None
             if 'embeddings' in search_embeddings and 'face_recognition' in search_embeddings['embeddings']:
                 search_embedding = search_embeddings['embeddings']['face_recognition']
-                logger.info("✅ Usando embedding 'face_recognition' para la búsqueda (método compatible).")
+                logger.info("Usando embedding 'face_recognition' para la búsqueda (método compatible).")
             else:
-                logger.warning("❌ Búsqueda fallida: La cara de búsqueda no tiene un embedding 'face_recognition' compatible con la base de datos.")
+                logger.warning("Búsqueda fallida: La cara de búsqueda no tiene un embedding 'face_recognition' compatible con la base de datos.")
                 return []
             
             if not search_embedding:
@@ -848,7 +916,7 @@ class ChromaFaceDatabase:
             
             if all_results['ids']:
                 total_faces = len(all_results['ids'])
-                logger.info(f"📊 Iterando sobre {total_faces} caras en la base de datos...")
+                logger.info(f"Iterando sobre {total_faces} caras en la base de datos...")
                 
                 for i, face_id in enumerate(all_results['ids']):
                     current_embedding = all_results['embeddings'][i]
@@ -856,7 +924,7 @@ class ChromaFaceDatabase:
                     product_id = metadata.get('product_id')
 
                     if not product_id or str(product_id).strip().lower() in ["undefined", "null", "none", ""]:
-                        logger.error(f"🚨 Ignorando cara {face_id} con product_id inválido durante la búsqueda: '{product_id}'")
+                        logger.error(f"Ignorando cara {face_id} con product_id inválido durante la búsqueda: '{product_id}'")
                         continue
                     
                     similarity = self._fallback_comparison({'face_recognition': search_embedding}, {'face_recognition': current_embedding})
@@ -880,7 +948,7 @@ class ChromaFaceDatabase:
                             matches.append(match_data)
 
             matches.sort(key=lambda x: x['similarity'], reverse=True)
-            logger.info(f"✅ Búsqueda híbrida completada. {len(matches)} coincidencias encontradas.")
+            logger.info(f"Búsqueda híbrida completada. {len(matches)} coincidencias encontradas.")
             return matches[:limit]
 
         except Exception as e:
@@ -945,10 +1013,10 @@ class ChromaFaceDatabase:
                 ids=[face_id],
                 metadatas=[{"customer_name": name, "customer_notes": notes}]
             )
-            logger.info(f"✅ Info de cara {face_id} actualizada.")
+            logger.info(f"Info de cara {face_id} actualizada.")
             return True
         except Exception as e:
-            logger.error(f"❌ Error actualizando info de cara: {e}")
+            logger.error(f"Error actualizando info de cara: {e}")
             return False
 
     async def delete_photo_like_old_system(self, photo_id: str) -> Dict:
@@ -1019,10 +1087,10 @@ class ChromaFaceDatabase:
                     best_match_similarity
                 ))
                 await db.commit()
-            logger.info(f"✅ Cliente buscado guardado: {phone_number}")
+            logger.info(f"Cliente buscado guardado: {phone_number}")
             return True
         except Exception as e:
-            logger.error(f"❌ Error guardando cliente buscado: {e}")
+            logger.error(f"Error guardando cliente buscado: {e}")
             return False
 
     async def get_all_searched_clients(self) -> List[Dict]:
@@ -1038,7 +1106,7 @@ class ChromaFaceDatabase:
                 clients = [dict(row) for row in await cursor.fetchall()]
             return clients
         except Exception as e:
-            logger.error(f"❌ Error obteniendo clientes buscados: {e}")
+            logger.error(f"Error obteniendo clientes buscados: {e}")
             return []
 
     async def get_recent_searches_by_phone(self, phone_number: str, hours: int = 24) -> List[Dict]:
@@ -1067,97 +1135,6 @@ class ChromaFaceDatabase:
 
 processor = AdvancedFaceProcessorIntegration()
 database = ChromaFaceDatabase()
-
-whatsapp_client = httpx.AsyncClient()
-WHATSAPP_API_TOKEN = "2175af4678f3b398b8dc9d2762e92772992984df03a59126f2f67f60bd094c00"
-WHATSAPP_API_URL = "https://wasenderapi.com/api/send-message"
-WHATSAPP_WEBHOOK_SECRET = "de9e287cdf4b088a5a228d1848c70997"
-
-message_queue = deque()
-processing_queue = False
-
-# ============================================
-# FUNCIONES AUXILIARES DE WHATSAPP
-# ============================================
-
-async def send_whatsapp_message_with_retry(to_number, text, max_retries=3):
-    headers = {"Authorization": f"Bearer {WHATSAPP_API_TOKEN}", "Content-Type": "application/json"}
-    payload = {"to": to_number, "text": text}
-    
-    for attempt in range(max_retries):
-        try:
-            if attempt > 0:
-                delay = 1  # Reducido de 2^attempt a 1 segundo
-                logger.info(f"Reintentando enviar mensaje en {delay} segundos")
-                await asyncio.sleep(delay)
-            
-            response = await whatsapp_client.post(WHATSAPP_API_URL, headers=headers, json=payload)
-            
-            if response.status_code == 429:
-                retry_after = int(response.headers.get('Retry-After', 5))  # Reducido de 65 a 5 segundos
-                logger.warning(f"Límite de velocidad alcanzado. Esperando {retry_after} segundos...")
-                await asyncio.sleep(retry_after)
-                continue
-                
-            response.raise_for_status()
-            logger.info(f"Mensaje ENVIADO a {to_number}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error enviando mensaje: {e}")
-            if attempt == max_retries - 1:
-                return False
-    
-    return False
-
-async def send_whatsapp_image_via_url(to_number: str, image_url: str, caption: str = "", max_retries: int = 3):
-    headers = {"Authorization": f"Bearer {WHATSAPP_API_TOKEN}", "Content-Type": "application/json"}
-    
-    payload = {"to": to_number, "imageUrl": image_url, "text": caption}
-    
-    for attempt in range(max_retries):
-        try:
-            if attempt > 0:
-                delay = 1  # Reducido de 2^attempt a 1 segundo
-                logger.info(f"Reintentando enviar imagen (URL) en {delay} segundos")
-                await asyncio.sleep(delay)
-            
-            response = await whatsapp_client.post(WHATSAPP_API_URL, headers=headers, json=payload, timeout=30.0)
-            
-            if response.status_code == 429:
-                retry_after = int(response.headers.get('Retry-After', 5))  # Reducido de 65 a 5 segundos
-                logger.warning(f"Límite de velocidad alcanzado para imagen. Esperando {retry_after} segundos...")
-                await asyncio.sleep(retry_after)
-                continue
-                
-            response.raise_for_status()
-            logger.info(f"Imagen (URL) ENVIADA a {to_number}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error enviando imagen (URL): {e}")
-            if attempt == max_retries - 1:
-                return False
-    
-    return False
-
-async def process_message_queue():
-    global processing_queue
-    if processing_queue: 
-        return
-    processing_queue = True
-    while message_queue:
-        message_type, to_number, content = message_queue.popleft()
-        
-        if message_type == "text":
-            await send_whatsapp_message_with_retry(to_number, content)
-        elif message_type == "image":
-            image_url, caption = content
-            await send_whatsapp_image_via_url(to_number, image_url, caption)
-        
-        # Eliminada la espera de 65 segundos entre mensajes
-        logger.info("✅ Mensaje procesado, continuando con el siguiente...")
-    processing_queue = False
 
 # ============================================
 # ENDPOINTS DE LA API (ACTUALIZADOS A ASYNC)
@@ -1259,10 +1236,6 @@ async def upload_photo(file: UploadFile = File(...)):
         logger.error(f"Error upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
-
-
 @app.get("/api/photos")
 async def get_photos():
     photos = await database.get_all_photos_like_old_system()
@@ -1356,7 +1329,6 @@ async def get_face_image(face_id: str, request: Request):
         return Response(headers={"Content-Type": "image/jpeg", "Content-Length": str(face_filepath.stat().st_size)})
     
     return FileResponse(path=face_filepath, media_type="image/jpeg")
-# main.py (añade esto al final del archivo)
 
 @app.get("/debug-paths")
 async def debug_paths():
@@ -1384,6 +1356,7 @@ async def debug_paths():
         debug_info["face_recognition_models.models exists"] = "N/A (script mode)"
 
     return debug_info
+
 @app.get("/faces/{face_id}")
 async def get_face_image_direct(face_id: str):
     try:
@@ -1434,7 +1407,7 @@ async def debug_database_state():
 @app.post("/force_cleanup", response_class=JSONResponse)
 async def force_database_cleanup():
     try:
-        logger.info("🚀 Iniciando limpieza forzada de la base de datos via endpoint...")
+        logger.info("Iniciando limpieza forzada de la base de datos via endpoint...")
         
         orphaned_count = await database._cleanup_orphaned_faces()
         invalid_id_count = await database._cleanup_invalid_product_ids()
@@ -1442,7 +1415,7 @@ async def force_database_cleanup():
         total_cleaned = orphaned_count + invalid_id_count
         
         message = f"Limpieza completada. Se eliminaron {orphaned_count} caras huérfanas y {invalid_id_count} caras con ID inválido."
-        logger.info(f"✅ {message}")
+        logger.info(f"{message}")
         
         return JSONResponse(
             status_code=200,
@@ -1467,7 +1440,7 @@ async def force_database_cleanup():
 @app.get("/inspect_chroma", response_class=JSONResponse)
 async def inspect_chroma_collection():
     try:
-        logger.info("🔬 Iniciando inspección de la colección ChromaDB...")
+        logger.info("Iniciando inspección de la colección ChromaDB...")
         all_results = database.face_collection.get(include=['metadatas'])
         
         if not all_results or not all_results['metadatas']:
@@ -1483,7 +1456,7 @@ async def inspect_chroma_collection():
         product_ids = [meta.get('product_id') for meta in all_results['metadatas']]
         unique_product_ids = sorted(list(set(product_ids)))
 
-        logger.info(f"🔬 Inspección completada. Se encontraron {len(unique_product_ids)} product_ids únicos.")
+        logger.info(f"Inspección completada. Se encontraron {len(unique_product_ids)} product_ids únicos.")
         
         return JSONResponse(
             status_code=200,
@@ -1507,22 +1480,22 @@ async def inspect_chroma_collection():
 @app.post("/reset_database", response_class=JSONResponse)
 async def reset_database():
     try:
-        logger.warning("🚨 Iniciando reset completo de la base de datos...")
+        logger.warning("Iniciando reset completo de la base de datos...")
         
         if os.path.exists(DB_PATH):
             os.remove(DB_PATH)
-            logger.info(f"🗑️ Archivo SQLite eliminado: {DB_PATH}")
+            logger.info(f"Archivo SQLite eliminado: {DB_PATH}")
         
         if CHROMA_DB_PATH.exists():
             shutil.rmtree(CHROMA_DB_PATH)
-            logger.info(f"🗑️ Directorio ChromaDB eliminado: {CHROMA_DB_PATH}")
+            logger.info(f"Directorio ChromaDB eliminado: {CHROMA_DB_PATH}")
             CHROMA_DB_PATH.mkdir(exist_ok=True)
         
         global database
         database = ChromaFaceDatabase()
         await database.initialize()
         
-        logger.info("✅ Base de datos reseteada y reinicializada correctamente.")
+        logger.info("Base de datos reseteada y reinicializada correctamente.")
         
         return JSONResponse(
             status_code=200,
@@ -1547,211 +1520,106 @@ async def get_searched_clients():
     return {"success": True, "clients": clients}
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # ============================================
-# WEBHOOK DE WHATSAPP (VERSIÓN COMPLETA Y CORREGIDA)
+# ENDPOINT DE BÚSQUEDA DE CARAS (FALTANTE)
 # ============================================
 
-@app.post("/webhook/whatsapp")
-async def whatsapp_webhook(request: Request):
+@app.post("/api/search-face")
+async def search_face(
+    file: UploadFile = File(...), 
+    threshold: float = Form(0.7)
+):
+    """
+    Endpoint para buscar caras similares en la base de datos
+    """
     try:
-        request_body = await request.body()
-        if not request_body:
-            logger.warning("⚠️ Webhook recibido sin cuerpo de solicitud")
-            return {"status": "ignored"}
-            
-        try:
-            data = json.loads(request_body.decode('utf-8'))
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Error decodificando JSON del webhook: {e}")
-            return {"status": "error", "detail": "Invalid JSON"}
-            
-        logger.info(f"📥 Webhook recibido de WhatsApp")
-
-        # Verificar si hay mensajes válidos
-        messages = data.get("data", {}).get("messages", {})
-        if not messages:
-            logger.info("📭 Webhook sin mensajes, ignorando...")
-            return {"status": "ignored"}
-            
-        message_data = messages
+        logger.info(f"Iniciando búsqueda de cara con threshold: {threshold}")
         
-        # Extraer el número de remitente con validación mejorada
-        user_number_full = message_data.get("key", {}).get("remoteJid", "")
-        user_number = user_number_full.replace("@s.whatsapp.net", "").replace("@g.us", "").replace("+", "")
+        # Validar que sea una imagen
+        if not file.content_type or not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
         
-        # Si no hay número de remitente válido, ignorar el mensaje
-        if not user_number or len(user_number) < 10:
-            logger.info(f"📭 Mensaje sin número de remitente válido: {user_number_full}, ignorando...")
-            return {"status": "ignored"}
-
-        message_content = message_data.get("message", {})
+        # Guardar temporalmente la imagen
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+            shutil.copyfileobj(file.file, temp_file)
+            temp_path = temp_file.name
         
-        if "imageMessage" in message_content:
-            logger.info(f"📷 Procesando imagen de {user_number}...")
+        logger.info(f"Imagen temporal guardada en: {temp_path}")
+        
+        # Procesar la imagen para detectar caras
+        faces_data = processor.detect_and_encode_faces(temp_path, save_faces=False)
+        
+        if not faces_data:
+            logger.warning("No se detectaron caras en la imagen de búsqueda")
+            os.unlink(temp_path)
+            return {
+                "success": True, 
+                "matches_found": 0, 
+                "matches": [],
+                "message": "No se detectaron caras en la imagen"
+            }
+        
+        logger.info(f"Se detectaron {len(faces_data)} caras en la imagen")
+        
+        # Buscar coincidencias en la base de datos
+        all_matches = []
+        for i, face_data in enumerate(faces_data):
+            logger.info(f"Buscando coincidencias para la cara {i+1}")
             
-            image_message = message_content.get("imageMessage", {})
-            caption = image_message.get("caption", "").strip().lower()
-            image_url = image_message.get("url")
-            media_key = image_message.get("mediaKey")
-            file_enc_sha256 = image_message.get("fileEncSha256")
+            search_results = await database.search_similar_faces(
+                {"embeddings": face_data["embeddings"]}, 
+                threshold=threshold,
+                limit=50
+            )
             
-            if not image_url or not media_key or not file_enc_sha256:
-                message_queue.append(("text", user_number, "❌ No pude obtener la imagen o sus claves."))
-                asyncio.create_task(process_message_queue())
-                return {"status": "ok"}
-
-            try:
-                logger.info("🔄 Descargando imagen encriptada...")
-                response = await whatsapp_client.get(image_url, follow_redirects=True, timeout=30.0)
-                response.raise_for_status()
-                encrypted_data = response.content
-                logger.info(f"✅ Descargado: {len(encrypted_data)} bytes encriptados")
-                
-                logger.info("🔓 Desencriptando imagen...")
-                decrypted_data = decrypt_whatsapp_media(encrypted_data, media_key, file_enc_sha256, 'image')
-                logger.info(f"✅ Desencriptado: {len(decrypted_data)} bytes")
-
-                # --- INICIO DE LA CORRECCIÓN DE ORIENTACIÓN ---
-                try:
-                    from PIL import Image, ImageOps  # Importamos ImageOps
-                    
-                    # Abrir la imagen desencriptada desde los bytes en memoria
-                    img_pil = Image.open(io.BytesIO(decrypted_data))
-
-                    # Usar ImageOps.exif_transpose para corregir la orientación automáticamente.
-                    # Esta función es robusta. Si no hay datos de orientación, no hace nada.
-                    try:
-                        img_pil = ImageOps.exif_transpose(img_pil)
-                        logger.info("✅ Orientación de imagen corregida automáticamente.")
-                    except Exception as e:
-                        # Si por alguna razón rara falla, continuamos con la imagen original.
-                        logger.warning(f"⚠️ No se pudo corregir la orientación con exif_transpose: {e}. Continuando con la imagen original.")
-
-                    # Convertir a RGB si es necesario (antes de guardar)
-                    if img_pil.mode != 'RGB':
-                        img_pil = img_pil.convert('RGB')
-                    
-                    # Convertir la imagen ya orientada a bytes para usarla más tarde
-                    img_byte_arr = io.BytesIO()
-                    img_pil.save(img_byte_arr, format='JPEG')
-                    image_bytes = img_byte_arr.getvalue()
-                    
-                    # Verificación final para asegurar que los bytes son válidos
-                    test_img = Image.open(io.BytesIO(image_bytes))
-                    test_img.verify()
-                    logger.info("✅ Imagen procesada y verificada con PIL.")
-
-                except Exception as e:
-                    logger.error(f"❌ Error procesando imagen con PIL: {e}")
-                    message_queue.append(("text", user_number, "❌ Error procesando la imagen."))
-                    asyncio.create_task(process_message_queue())
-                    return {"status": "ok"}
-                # --- FIN DE LA CORRECCIÓN DE ORIENTACIÓN ---
-
-            except Exception as e:
-                logger.error(f"Error descargando/desencriptando: {e}")
-                message_queue.append(("text", user_number, "❌ Error con tu imagen. Intenta de nuevo."))
-                asyncio.create_task(process_message_queue())
-                return {"status": "ok"}
-            
-            if caption == "1":
-                logger.info(f"🔍 Buscando coincidencias para {user_number}...")
-                try:
-                    search_id = str(uuid.uuid4())
-                    search_filename = f"search_{search_id}.jpg"
-                    search_filepath = UPLOAD_DIR / search_filename
-                    
-                    # Guardar los bytes de la imagen ya corregida
-                    with open(search_filepath, "wb") as f:
-                        f.write(image_bytes)
-                    
-                    search_faces = processor.detect_and_encode_faces(str(search_filepath), save_faces=False)
-                    
-                    if not search_faces:
-                        message_queue.append(("text", user_number, "❌ No detecté una cara clara. "))
-                    else:
-                        search_face = max(search_faces, key=lambda x: x.get('confidence', 0))
-                        
-                        matches = await database.search_similar_faces(search_face, threshold=0.5)
-                        
-                        if matches:
-                            message_queue.append(("text", user_number, f"✅ Encontré {len(matches)} coincidencias:"))
-                            
-                            for i, match in enumerate(matches[:5]):
-                                product_id = match['photo_id']
-                                similarity_percent = round(match['similarity'] * 100)
-                                
-                                face_id = search_face['face_id']
-                                face_filename = f"{face_id}.jpg"
-                                face_filepath = FACES_DIR / face_filename
-                                
-                                cv2.imwrite(str(face_filepath), search_face['face_image'])
-                                
-                                await database.add_searched_client(
-                                    client_id=search_id,
-                                    phone_number=user_number,
-                                    face_image_path=face_id,
-                                    best_match_photo_id=product_id,
-                                    best_match_similarity=match['similarity']
-                                )
-                                
-                                public_image_url = f"{BASE_URL}/api/image/photo/{product_id}"
-                                message_queue.append(("image", user_number, (public_image_url, f"Coincidencia {i+1}: Similitud {similarity_percent}%")))
-                        else:
-                            face_id = search_face['face_id']
-                            face_filename = f"{face_id}.jpg"
-                            face_filepath = FACES_DIR / face_filename
-                            
-                            cv2.imwrite(str(face_filepath), search_face['face_image'])
-                            
-                            await database.add_searched_client(
-                                client_id=search_id,
-                                phone_number=user_number,
-                                face_image_path=face_id
-                            )
-                            message_queue.append(("text", user_number, "❌ No encontré caras similares."))
-                    
-                    asyncio.create_task(process_message_queue())
-                        
-                except Exception as e:
-                    logger.error(f"Error búsqueda: {e}")
-                    message_queue.append(("text", user_number, "❌ Error inesperado."))
-                    asyncio.create_task(process_message_queue())
-            
-            else:
-                message_queue.append(("text", user_number, "¡Hola! Envíame una selfie con el número 1 y te buscaré."))
-                asyncio.create_task(process_message_queue())
-            
-            return {"status": "ok"}
-            
-        # Manejo de mensajes de texto
-        user_message = ""
-        if "conversation" in message_content:  # <-- LÍNEA CORREGIDA
-            user_message = message_content.get("conversation", "").strip().lower()
-        elif "extendedTextMessage" in message_content:
-            user_message = message_content.get("extendedText", {}).get("text", "").strip().lower()
-
-        if user_message:
-            logger.info(f"💬 Mensaje de {user_number}: '{user_message}'")
-            message_queue.append(("text", user_number, "¡Hola! Envíame una selfie con el número 1 y te buscaré."))
-            asyncio.create_task(process_message_queue())
-            return {"status": "ok"}
-            
+            logger.info(f"Cara {i+1}: {len(search_results)} coincidencias encontradas")
+            all_matches.extend(search_results)
+        
+        # Eliminar duplicados (mismas fotos de diferentes caras)
+        unique_matches = []
+        seen_photo_ids = set()
+        
+        for match in all_matches:
+            if match["photo_id"] not in seen_photo_ids:
+                unique_matches.append(match)
+                seen_photo_ids.add(match["photo_id"])
+        
+        # Ordenar por similitud descendente
+        unique_matches.sort(key=lambda x: x["similarity"], reverse=True)
+        
+        # Limitar resultados a los mejores 20
+        final_matches = unique_matches[:20]
+        
+        # Limpiar archivo temporal
+        os.unlink(temp_path)
+        
+        logger.info(f"Búsqueda completada: {len(final_matches)} coincidencias únicas")
+        
+        return {
+            "success": True, 
+            "matches_found": len(final_matches), 
+            "matches": final_matches,
+            "total_faces_detected": len(faces_data),
+            "threshold_used": threshold
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"❌ Error webhook: {e}")
+        logger.error(f"Error en búsqueda de cara: {e}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        return {"status": "error", "detail": str(e)}
+        raise HTTPException(status_code=500, detail=f"Error en la búsqueda: {str(e)}")
 
-    return {"status": "ok"}
 # ============================================
 # EJECUCIÓN Y STARTUP EVENT
 # ============================================
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 Ejecutando startup event: Inicializando base de datos...")
+    logger.info("Ejecutando startup event: Inicializando base de datos...")
     await database.initialize()
-    logger.info("✅ Aplicación lista para recibir peticiones.")
+    logger.info("Aplicación lista para recibir peticiones.")
 
 # ============================================
 # EJECUCIÓN
@@ -1761,11 +1629,8 @@ if __name__ == "__main__":
     print("=" * 60)
     print("Face Recognition API v5.3.0-SQLite")
     print("=" * 60)
-    print("Servidor: http://localhost:8000")
-    print("Webhook: /webhook/whatsapp")
-    print("Docs: http://localhost:8000/docs")
-    print("=" * 60)
-    print("AVISO: Los mensajes de WhatsApp se enviarán sin restricciones de tiempo.")
+    print("Servidor: http://localhost:8888")
+    print("Docs: http://localhost:8888/docs")
     print("=" * 60)
     print("Presiona Ctrl+C para detener")
     print("=" * 60)
