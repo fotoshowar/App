@@ -44,18 +44,7 @@ jobs:
             libgstreamer1.0-dev \
             libgstreamer-plugins-base1.0-dev \
             libglib2.0-dev \
-            libgtk-3-dev \
-            libavcodec-dev \
-            libavformat-dev \
-            libswscale-dev \
-            libv4l-dev \
-            libxvidcore-dev \
-            libx264-dev \
-            libjpeg-dev \
-            libpng-dev \
-            libtiff-dev \
-            libatlas-base-dev \
-            python3-dev
+            libatlas-base-dev
 
       - name: Install Python dependencies
         run: |
@@ -86,7 +75,7 @@ import shutil
 
 # Get the path where models are installed
 models_source_path = os.path.join(os.path.dirname(face_recognition_models.__file__), 'models')
-print(f'Models source: {models_source_path}')
+print('Models source: {}'.format(models_source_path))
 
 # Copy models to local directory
 if os.path.exists(models_source_path):
@@ -95,12 +84,12 @@ if os.path.exists(models_source_path):
         if file.endswith('.dat'):
             source_file = os.path.join(models_source_path, file)
             dest_file = os.path.join('models', file)
-            print(f'Copying {file} to models/')
+            print('Copying {} to models/'.format(file))
             shutil.copy2(source_file, dest_file)
             copied_files.append(file)
-    print(f'Models copied: {copied_files}')
+    print('Models copied: {}'.format(copied_files))
 else:
-    print(f'Directory not found: {models_source_path}')
+    print('Directory not found: {}'.format(models_source_path))
           "
           
           echo "Verifying copied models:"
@@ -135,7 +124,7 @@ else:
 
       - name: Create PyInstaller spec file
         run: |
-          cat > main.spec << EOF
+          cat > main.spec << 'EOF'
           # -*- mode: python ; coding: utf-8 -*-
           
           block_cipher = None
