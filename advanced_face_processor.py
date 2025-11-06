@@ -1,13 +1,42 @@
+"""
+Sistema de Reconocimiento Facial de Alta Precisión - Versión Unificada
+Implementa múltiples métodos de reconocimiento facial de última generación
+Compatible con Windows y Ubuntu
+"""
 
-        # advanced_face_processor.py
-
-import sys
+import cv2
+import numpy as np
+import face_recognition
+import torch
+import torchvision.transforms as transforms
+from facenet_pytorch import MTCNN, InceptionResnetV1
+import dlib
+from scipy.spatial.distance import cosine
+from sklearn.metrics.pairwise import cosine_similarity
+import insightface
+from typing import List, Dict, Tuple, Optional
+import logging
 import os
+import sys
+import platform
+import urllib.request
+import bz2
+from pathlib import Path
+import json
 
 class AdvancedFaceProcessor:
+    """
+    Procesador de caras avanzado que combina múltiples modelos de estado del arte:
+    1. FaceNet (Google) - Precisión muy alta
+    2. ArcFace/InsightFace - Estado del arte actual
+    3. face_recognition (dlib) - Rápido y confiable
+    4. MTCNN - Detección precisa de caras
+    """
+    
     def __init__(self, device='cpu', base_path=None):
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
         print(f"Usando dispositivo: {self.device}")
+        print(f"Sistema operativo: {platform.system()}")
         
         # Usar la ruta base proporcionada o determinarla automáticamente
         if base_path:
@@ -15,9 +44,9 @@ class AdvancedFaceProcessor:
             print(f"Usando ruta base proporcionada: {self.base_path}")
         else:
             if getattr(sys, 'frozen', False):
-                # Estamos ejecutando desde un exe empaquetado
+                # Estamos ejecutando desde un ejecutable empaquetado
                 self.base_path = sys._MEIPASS
-                print(f"Ejecutando desde exe, ruta base: {self.base_path}")
+                print(f"Ejecutando desde ejecutable, ruta base: {self.base_path}")
             else:
                 # Estamos ejecutando desde el código fuente
                 self.base_path = os.path.dirname(os.path.abspath(__file__))
@@ -29,10 +58,70 @@ class AdvancedFaceProcessor:
         
         # Inicializar modelos
         self.init_models()
+        
+    def _verify_models(self):
+        """Verifica que los modelos necesarios existan"""
+        required_models = [
+            "shape_predictor_68_face_landmarks.dat",
+            "dlib_face_recognition_resnet_model_v1.dat"
+        ]
+        
+        missing_models = []
+        for model in required_models:
+            model_path = self.models_dir / model
+            if not model_path.exists():
+                missing_models.append(model)
+                print(f"❌ Modelo faltante: {model}")
+            else:
+                print(f"✅ Modelo encontrado: {model}")
+        
+        if missing_models:
+            print(f"⚠️ Modelos faltantes: {missing_models}")
+            print("Intentando descargar modelos faltantes...")
+            for model in missing_models:
+                self._download_model(model)
+    
+    def _download_model(self, model_name):
+        """Descarga un modelo específico si no existe"""
+        model_urls = {
+            "shape_predictor_68_face_landmarks.dat": "https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2",
+            "dlib_face_recognition_resnet_model_v1.dat": "https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2"
+        }
+        
+        if model_name not in model_urls:
+            print(f"❌ URL no encontrada para el modelo: {model_name}")
+            return
+        
+        url = model_urls[model_name]
+        model_path = self.models_dir / model_name
+        
+        try:
+            print(f"⬇️ Descargando {model_name}...")
+            compressed_path = str(model_path) + ".bz2"
+            
+            # Descargar archivo comprimido
+            urllib.request.urlretrieve(url, compressed_path)
+            
+            # Descomprimir
+            with bz2.BZ2File(compressed_path, 'rb') as f_in:
+                with open(model_path, 'wb') as f_out:
+                    f_out.write(f_in.read())
+            
+            # Eliminar archivo comprimido
+            os.remove(compressed_path)
+            print(f"✅ {model_name} descargado exitosamente")
+            
+        except Exception as e:
+            print(f"❌ Error descargando {model_name}: {e}")
+            if os.path.exists(compressed_path):
+                os.remove(compressed_path)
     
     def init_models(self):
         """Inicializa todos los modelos de reconocimiento facial"""
         try:
+            # Verificar que los modelos existan
+            self._verify_models()
+            
             # 1. MTCNN para detección precisa de caras
             print("Cargando MTCNN...")
             self.mtcnn = MTCNN(
@@ -61,9 +150,11 @@ class AdvancedFaceProcessor:
             print("Cargando InsightFace...")
             try:
                 self.insightface_app = insightface.app.FaceAnalysis()
-                self.insightface_app.prepare(ctx_id=0 if torch.cuda.is_available() else -1, 
-                                           det_size=(640, 640))
+                # Configurar para CPU o GPU según disponibilidad
+                ctx_id = 0 if torch.cuda.is_available() else -1
+                self.insightface_app.prepare(ctx_id=ctx_id, det_size=(640, 640))
                 self.use_insightface = True
+                print("✅ InsightFace cargado exitosamente")
             except Exception as e:
                 print(f"InsightFace no disponible: {e}")
                 self.use_insightface = False
@@ -73,112 +164,67 @@ class AdvancedFaceProcessor:
             try:
                 self.dlib_detector = dlib.get_frontal_face_detector()
                 
-                # Rutas para los modelos de dlib
-                models_path = os.path.join(self.base_path, "face_recognition_models", "models")
+                # Usar siempre el directorio models local
+                landmarks_path = self.models_dir / "shape_predictor_68_face_landmarks.dat"
+                if not landmarks_path.exists():
+                    raise FileNotFoundError(f"No se encontró el modelo: {landmarks_path}")
                 
-                # Verificar si los modelos existen en la ruta esperada
-                landmarks_path = os.path.join(models_path, "shape_predictor_68_face_landmarks.dat")
-                if not os.path.exists(landmarks_path):
-                    # Si no existe, intentar descargarlo
-                    landmarks_url = "https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2"
-                    landmarks_path = self.download_dlib_model("shape_predictor_68_face_landmarks.dat", landmarks_url)
+                self.shape_predictor = dlib.shape_predictor(str(landmarks_path))
                 
-                self.shape_predictor = dlib.shape_predictor(landmarks_path)
+                face_rec_path = self.models_dir / "dlib_face_recognition_resnet_model_v1.dat"
+                if not face_rec_path.exists():
+                    raise FileNotFoundError(f"No se encontró el modelo: {face_rec_path}")
                 
-                face_rec_path = os.path.join(models_path, "dlib_face_recognition_resnet_model_v1.dat")
-                if not os.path.exists(face_rec_path):
-                    # Si no existe, intentar descargarlo
-                    face_rec_url = "https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2"
-                    face_rec_path = self.download_dlib_model("dlib_face_recognition_resnet_model_v1.dat", face_rec_url)
-                
-                self.face_encoder = dlib.face_recognition_model_v1(face_rec_path)
+                self.face_encoder = dlib.face_recognition_model_v1(str(face_rec_path))
                 
                 self.use_dlib = True
-                print("dlib inicializado correctamente")
+                print("✅ dlib inicializado correctamente con modelos locales")
                 
             except Exception as e:
-                print(f"Error inicializando dlib: {e}")
+                print(f"❌ Error inicializando dlib: {e}")
                 self.use_dlib = False
             
-            print("Todos los modelos disponibles cargados exitosamente!")
+            print("✅ Todos los modelos disponibles cargados exitosamente!")
             
         except Exception as e:
-            print(f"Error inicializando modelos: {e}")
+            print(f"❌ Error inicializando modelos: {e}")
             raise
-    
-    def download_dlib_model(self, model_name: str, url: str) -> str:
-        """Descarga un modelo de dlib si no existe"""
-        # Determinar la ruta correcta para guardar el modelo
-        if getattr(sys, 'frozen', False):
-            # Estamos ejecutando desde un exe
-            model_dir = os.path.join(sys._MEIPASS, "face_recognition_models", "models")
-            os.makedirs(model_dir, exist_ok=True)
-            model_path = os.path.join(model_dir, model_name)
-        else:
-            # Estamos ejecutando desde el código fuente
-            model_path = self.models_dir / model_name
-        
-        if os.path.exists(model_path):
-            print(f"Modelo {model_name} ya existe, saltando descarga...")
-            return str(model_path)
-        
-        print(f"Descargando {model_name}...")
-        compressed_path = str(model_path) + ".bz2"
-        
-        try:
-            # Descargar archivo comprimido
-            urllib.request.urlretrieve(url, compressed_path)
-            
-            # Descomprimir
-            with bz2.BZ2File(compressed_path, 'rb') as f_in:
-                with open(model_path, 'wb') as f_out:
-                    f_out.write(f_in.read())
-            
-            # Eliminar archivo comprimido
-            os.remove(compressed_path)
-            print(f"Modelo {model_name} descargado y descomprimido exitosamente")
-            
-        except Exception as e:
-            print(f"Error descargando {model_name}: {e}")
-            if os.path.exists(compressed_path):
-                os.remove(compressed_path)
-            raise
-        
-        return str(model_path)
-    
-    # [El resto de los métodos de la clase permanecen igual...]
-
     
     def detect_faces_mtcnn(self, image: np.ndarray) -> List[Dict]:
         """Detecta caras usando MTCNN (más preciso)"""
-        # Convertir BGR a RGB
-        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
-        # Detectar caras y puntos de referencia
-        boxes, probs, landmarks = self.mtcnn.detect(rgb_image, landmarks=True)
-        
-        faces = []
-        if boxes is not None:
-            for i, (box, prob, landmark) in enumerate(zip(boxes, probs, landmarks)):
-                if prob > 0.9:  # Filtro de confianza alto
-                    x1, y1, x2, y2 = box.astype(int)
-                    
-                    # Asegurar que las coordenadas estén dentro de la imagen
-                    x1, y1 = max(0, x1), max(0, y1)
-                    x2, y2 = min(image.shape[1], x2), min(image.shape[0], y2)
-                    
-                    face_region = image[y1:y2, x1:x2]
-                    
-                    if face_region.size > 0:
-                        faces.append({
-                            'bbox': {'x': x1, 'y': y1, 'width': x2-x1, 'height': y2-y1},
-                            'confidence': float(prob),
-                            'landmarks': landmark,
-                            'face_image': face_region,
-                            'method': 'mtcnn'
-                        })
-        
-        return faces
+        try:
+            # Convertir BGR a RGB
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+            # Detectar caras y puntos de referencia
+            boxes, probs, landmarks = self.mtcnn.detect(rgb_image, landmarks=True)
+            
+            faces = []
+            if boxes is not None:
+                for i, (box, prob, landmark) in enumerate(zip(boxes, probs, landmarks)):
+                    if prob > 0.9:  # Filtro de confianza alto
+                        x1, y1, x2, y2 = box.astype(int)
+                        
+                        # Asegurar que las coordenadas estén dentro de la imagen
+                        x1, y1 = max(0, x1), max(0, y1)
+                        x2, y2 = min(image.shape[1], x2), min(image.shape[0], y2)
+                        
+                        face_region = image[y1:y2, x1:x2]
+                        
+                        if face_region.size > 0:
+                            faces.append({
+                                'bbox': {'x': x1, 'y': y1, 'width': x2-x1, 'height': y2-y1},
+                                'confidence': float(prob),
+                                'landmarks': landmark,
+                                'face_image': face_region,
+                                'method': 'mtcnn'
+                            })
+            
+            return faces
+            
+        except Exception as e:
+            print(f"Error en detección MTCNN: {e}")
+            return []
     
     def generate_facenet_embedding(self, face_image: np.ndarray) -> np.ndarray:
         """Genera embedding usando FaceNet"""
@@ -199,7 +245,7 @@ class AdvancedFaceProcessor:
             return embedding
             
         except Exception as e:
-            logger.error(f"Error en FaceNet embedding: {e}")
+            print(f"Error en FaceNet embedding: {e}")
             return np.zeros(512)
     
     def generate_insightface_embedding(self, image: np.ndarray) -> Optional[np.ndarray]:
@@ -224,11 +270,11 @@ class AdvancedFaceProcessor:
             return None
             
         except Exception as e:
-            logger.error(f"Error en InsightFace embedding: {e}")
+            print(f"Error en InsightFace embedding: {e}")
             return None
     
     def generate_dlib_embedding(self, image: np.ndarray, face_bbox: Dict) -> Optional[np.ndarray]:
-        """Genera embedding usando dlib - FIXED VERSION"""
+        """Genera embedding usando dlib"""
         if not self.use_dlib:
             return None
             
@@ -263,7 +309,7 @@ class AdvancedFaceProcessor:
             return embedding
             
         except Exception as e:
-            logger.error(f"Error en dlib embedding: {e}")
+            print(f"Error en dlib embedding: {e}")
             return None
     
     def generate_face_recognition_embedding(self, image: np.ndarray) -> Optional[np.ndarray]:
@@ -284,7 +330,7 @@ class AdvancedFaceProcessor:
             return None
             
         except Exception as e:
-            logger.error(f"Error en face_recognition embedding: {e}")
+            print(f"Error en face_recognition embedding: {e}")
             return None
     
     def detect_faces_advanced(self, image: np.ndarray) -> List[Dict]:
@@ -322,9 +368,9 @@ class AdvancedFaceProcessor:
                         'method': 'face_recognition'
                     })
         except Exception as e:
-            logger.error(f"Error en face_recognition detection: {e}")
+            print(f"Error en face_recognition detection: {e}")
         
-        logger.info(f"Detectadas {len(all_faces)} caras usando métodos avanzados")
+        print(f"Detectadas {len(all_faces)} caras usando métodos avanzados")
         return all_faces
     
     def generate_multi_model_embedding(self, face_data: Dict, original_image: np.ndarray) -> Dict:
@@ -381,14 +427,14 @@ class AdvancedFaceProcessor:
                 weighted_similarity += similarity * weight
                 total_weight += weight
                 
-                logger.info(f"Similitud {model_name}: {similarity:.3f}")
+                print(f"Similitud {model_name}: {similarity:.3f}")
         
         if total_weight > 0:
             final_similarity = weighted_similarity / total_weight
         else:
             final_similarity = 0.0
         
-        logger.info(f"Similitud final ponderada: {final_similarity:.3f}")
+        print(f"Similitud final ponderada: {final_similarity:.3f}")
         return final_similarity
     
     def calculate_bbox_overlap(self, bbox1: Dict, bbox2: Dict) -> float:
@@ -428,3 +474,19 @@ class AdvancedFaceProcessor:
                 processed_faces.append(face_data)
         
         return processed_faces
+    
+    def get_system_status(self) -> Dict:
+        """Retorna el estado del sistema y modelos disponibles"""
+        return {
+            'device': str(self.device),
+            'platform': platform.system(),
+            'models_available': {
+                'mtcnn': True,
+                'facenet': True,
+                'insightface': self.use_insightface,
+                'dlib': self.use_dlib,
+                'face_recognition': True
+            },
+            'models_path': str(self.models_dir),
+            'base_path': self.base_path
+        }
