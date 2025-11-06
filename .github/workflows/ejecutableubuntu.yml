@@ -34,12 +34,14 @@ jobs:
             libavcodec-dev \
             libavformat-dev \
             libswscale-dev \
-            libtbb2 \
             libtbb-dev \
             libjpeg-dev \
             libpng-dev \
             libtiff-dev \
-            libdc1394-22-dev
+            libdc1394-dev \
+            libv4l-dev \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev
 
       - name: Install Python dependencies
         run: |
@@ -47,9 +49,79 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      - name: Clean and create models directory
+        run: |
+          echo "Preparing models directory..."
+          if [ -d "models" ]; then
+              echo "Removing existing models directory..."
+              rm -rf models
+          fi
+          echo "Creating local models directory..."
+          mkdir -p models
+
+      - name: Install face_recognition_models and copy dlib models
+        run: |
+          echo "Installing face_recognition_models to get the files..."
+          pip install face_recognition_models
+          
+          echo "Searching and copying dlib models..."
+          python3 -c "
+import face_recognition_models
+import os
+import shutil
+
+# Get the path where models are installed
+models_source_path = os.path.join(os.path.dirname(face_recognition_models.__file__), 'models')
+print(f'Models source: {models_source_path}')
+
+# Copy models to local directory
+if os.path.exists(models_source_path):
+    copied_files = []
+    for file in os.listdir(models_source_path):
+        if file.endswith('.dat'):
+            source_file = os.path.join(models_source_path, file)
+            dest_file = os.path.join('models', file)
+            print(f'Copying {file} to models/')
+            shutil.copy2(source_file, dest_file)
+            copied_files.append(file)
+    print(f'Models copied: {copied_files}')
+else:
+    print(f'Directory not found: {models_source_path}')
+          "
+          
+          echo "Verifying copied models:"
+          ls -la models/
+
+      - name: Download additional models if needed
+        run: |
+          echo "Verifying and downloading additional models if needed..."
+          
+          # Verify shape_predictor_68_face_landmarks.dat
+          if [ ! -f "models/shape_predictor_68_face_landmarks.dat" ]; then
+              echo "Downloading shape_predictor_68_face_landmarks.dat..."
+              wget -O models/shape_predictor_68_face_landmarks.dat.bz2 https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2
+              cd models && bunzip2 shape_predictor_68_face_landmarks.dat.bz2 && cd ..
+              echo "shape_predictor_68_face_landmarks.dat downloaded"
+          else
+              echo "shape_predictor_68_face_landmarks.dat already exists"
+          fi
+          
+          # Verify dlib_face_recognition_resnet_model_v1.dat
+          if [ ! -f "models/dlib_face_recognition_resnet_model_v1.dat" ]; then
+              echo "Downloading dlib_face_recognition_resnet_model_v1.dat..."
+              wget -O models/dlib_face_recognition_resnet_model_v1.dat.bz2 https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2
+              cd models && bunzip2 dlib_face_recognition_resnet_model_v1.dat.bz2 && cd ..
+              echo "dlib_face_recognition_resnet_model_v1.dat downloaded"
+          else
+              echo "dlib_face_recognition_resnet_model_v1.dat already exists"
+          fi
+          
+          echo "Final models list:"
+          ls -la models/
+
       - name: Create PyInstaller spec file
         run: |
-          echo "
+          cat > main.spec << EOF
           # -*- mode: python ; coding: utf-8 -*-
           
           block_cipher = None
@@ -60,7 +132,7 @@ jobs:
               binaries=[],
               datas=[
                   ('models', 'models'),
-                  ('/opt/hostedtoolcache/Python/3.11.*/x64/lib/python3.11/site-packages/face_recognition_models/models', 'face_recognition_models/models'),
+                  ('static', 'static'),
               ],
               hiddenimports=[
                   'face_recognition_models',
@@ -130,61 +202,144 @@ jobs:
               codesign_identity=None,
               entitlements_file=None,
           )
-          " > main.spec
+          EOF
+
+      - name: Verify spec file
+        run: |
+          echo "Verifying spec file:"
+          grep -A 5 "datas" main.spec
 
       - name: Build executable with PyInstaller
         run: |
+          echo "Building executable with PyInstaller..."
           pyinstaller main.spec
 
-      - name: Create Ubuntu package directory
+      - name: Verify executable and included files
         run: |
-          mkdir -p ubuntu-package
-          cp dist/main ubuntu-package/
-          cp -r static ubuntu-package/
-          cp -r models ubuntu-package/
-          cp requirements.txt ubuntu-package/
+          echo "Verifying created executable:"
+          if [ -f "dist/main" ]; then
+              echo "main executable found"
+              ls -la dist/main
+              
+              echo "Verifying dist directory structure:"
+              find dist -type f
+          else
+              echo "main executable not found"
+              exit 1
+          fi
+
+      - name: Create final package directory
+        run: |
+          echo "Creating final package..."
+          mkdir -p fotoshow-ubuntu
           
-          # Crear script de ejecución
-          echo '#!/bin/bash' > ubuntu-package/run.sh
-          echo 'DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"' >> ubuntu-package/run.sh
-          echo 'cd "$DIR"' >> ubuntu-package/run.sh
-          echo 'export LD_LIBRARY_PATH="$DIR:$LD_LIBRARY_PATH"' >> ubuntu-package/run.sh
-          echo './main' >> ubuntu-package/run.sh
-          chmod +x ubuntu-package/run.sh
+          # Copy executable
+          cp dist/main fotoshow-ubuntu/
           
-          # Crear archivo README
-          echo "# FOTOSHOW - Ubuntu Package" > ubuntu-package/README.md
-          echo "" >> ubuntu-package/README.md
-          echo "## Instrucciones de Ejecución" >> ubuntu-package/README.md
-          echo "" >> ubuntu-package/README.md
-          echo "1. Asegúrate de tener los permisos necesarios:" >> ubuntu-package/README.md
-          echo "   \`\`\`bash" >> ubuntu-package/README.md
-          echo "   chmod +x run.sh" >> ubuntu-package/README.md
-          echo "   chmod +x main" >> ubuntu-package/README.md
-          echo "   \`\`\`" >> ubuntu-package/README.md
-          echo "" >> ubuntu-package/README.md
-          echo "2. Ejecuta la aplicación:" >> ubuntu-package/README.md
-          echo "   \`\`\`bash" >> ubuntu-package/README.md
-          echo "   ./run.sh" >> ubuntu-package/README.md
-          echo "   \`\`\`" >> ubuntu-package/README.md
-          echo "" >> ubuntu-package/README.md
-          echo "## Requisitos del Sistema" >> ubuntu-package/README.md
-          echo "- Ubuntu 18.04 o superior" >> ubuntu-package/README.md
-          echo "- Python 3.11 (incluido en el ejecutable)" >> ubuntu-package/README.md
-          echo "- Acceso a cámara web (opcional)" >> ubuntu-package/README.md
+          # Copy static files if they exist
+          if [ -d "static" ]; then
+              echo "Copying static files..."
+              cp -r static/* fotoshow-ubuntu/static/
+          fi
+          
+          # Copy models
+          echo "Copying models..."
+          cp -r models/* fotoshow-ubuntu/models/
+          
+          # Create execution script
+          cat > fotoshow-ubuntu/run.sh << 'EOF'
+          #!/bin/bash
+          
+          echo "======================================="
+          echo "       FOTOSHOW"
+          echo "   Facial Recognition System"
+          echo "======================================="
+          echo ""
+          echo "Starting application..."
+          echo ""
+          
+          # Get the directory where this script is located
+          DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+          
+          # Change to that directory
+          cd "$DIR"
+          
+          # Set library path
+          export LD_LIBRARY_PATH="$DIR:$LD_LIBRARY_PATH"
+          
+          # Run the executable
+          ./main
+          
+          # Check if execution was successful
+          if [ $? -ne 0 ]; then
+              echo ""
+              echo "Error executing the application."
+              read -p "Press Enter to continue..."
+              exit 1
+          fi
+          EOF
+          
+          # Make the script executable
+          chmod +x fotoshow-ubuntu/run.sh
+          
+          # Create README
+          cat > fotoshow-ubuntu/README.md << 'EOF'
+          # FOTOSHOW - Ubuntu Package
+          
+          ## Execution Instructions
+          
+          ### Option 1: Automatic Execution (Recommended)
+          1. Open a terminal
+          2. Navigate to the directory where you extracted the package
+          3. Run: ./run.sh
+          
+          ### Option 2: Manual Execution
+          1. Open a terminal
+          2. Navigate to the directory where you extracted the package
+          3. Run: ./main
+          
+          ## Included Files
+          - 'main': Main application executable
+          - 'models/': Facial recognition models (dlib)
+          - 'static/': Web interface static files
+          - 'run.sh': Automatic execution script
+          
+          ## Important Notes
+          - Make sure all files remain in their respective folders
+          - Do not move or delete the 'models/' folder
+          - The application needs internet access for some features
+          - Ensure the scripts have execution permissions (chmod +x)
+          
+          ## System Requirements
+          - Ubuntu 18.04 or higher
+          - 4GB RAM or more (8GB recommended)
+          - Disk space: 500MB free
+          - Web camera (optional, for capture function)
+          EOF
+          
+          echo "Final package content:"
+          find fotoshow-ubuntu -type f
 
       - name: Create tar.gz package
         run: |
-          tar -czf fotoshow-ubuntu.tar.gz -C ubuntu-package .
+          echo "Creating tar.gz package..."
+          tar -czf fotoshow-ubuntu.tar.gz -C fotoshow-ubuntu .
+          echo "tar.gz package created: fotoshow-ubuntu.tar.gz"
 
-      - name: Upload Ubuntu executable artifact
+      - name: Upload executable artifact
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu-executable
-          path: fotoshow-ubuntu.tar.gz
+          path: dist/main
 
-      - name: Upload Ubuntu package artifact
+      - name: Upload complete package artifact
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu-package
-          path: ubuntu-package/
+          path: fotoshow-ubuntu.tar.gz
+
+      - name: Upload package directory artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-package-dir
+          path: fotoshow-ubuntu/
