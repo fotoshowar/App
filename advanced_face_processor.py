@@ -1,75 +1,128 @@
-"""
-Sistema de Reconocimiento Facial de Alta Precisión
-Implementa múltiples métodos de reconocimiento facial de última generación
-"""
 
-import cv2
-import numpy as np
-import face_recognition
-import torch
-import torchvision.transforms as transforms
-from facenet_pytorch import MTCNN, InceptionResnetV1
-import dlib
-from scipy.spatial.distance import cosine
-from sklearn.metrics.pairwise import cosine_similarity
-import insightface
-from typing import List, Dict, Tuple, Optional
-import logging
-import os
+        # advanced_face_processor.py
+
 import sys
-import urllib.request
-import bz2
-from pathlib import Path
-
-# --- Configuración del logger ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+import os
 
 class AdvancedFaceProcessor:
-    """
-    Procesador de caras avanzado que combina múltiples modelos de estado del arte:
-    1. FaceNet (Google) - Precisión muy alta
-    2. ArcFace/InsightFace - Estado del arte actual
-    3. face_recognition (dlib) - Rápido y confiable
-    4. MTCNN - Detección precisa de caras
-    """
-    
-   # advanced_face_processor.py
-
-class AdvancedFaceProcessor:
-    def __init__(self, device='cpu'):
+    def __init__(self, device='cpu', base_path=None):
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
-        logger.info(f"Usando dispositivo: {self.device}")
+        print(f"Usando dispositivo: {self.device}")
         
-        # --- ¡SOLUCIÓN DEFINITIVA PARA LA RUTA! ---
-        if getattr(sys, 'frozen', False):
-            # Si estamos corriendo como un .exe de PyInstaller
-            # La carpeta 'models' está DENTRO de '_internal', pero en una subcarpeta específica.
-            base_path = sys._MEIPASS
-            self.models_dir = os.path.join(base_path, 'face_recognition_models', 'models')
+        # Usar la ruta base proporcionada o determinarla automáticamente
+        if base_path:
+            self.base_path = base_path
+            print(f"Usando ruta base proporcionada: {self.base_path}")
         else:
-            # Si estamos corriendo el script directamente (para desarrollo)
-            base_path = os.path.dirname(os.path.abspath(__file__))
-            self.models_dir = os.path.join(base_path, 'models')
+            if getattr(sys, 'frozen', False):
+                # Estamos ejecutando desde un exe empaquetado
+                self.base_path = sys._MEIPASS
+                print(f"Ejecutando desde exe, ruta base: {self.base_path}")
+            else:
+                # Estamos ejecutando desde el código fuente
+                self.base_path = os.path.dirname(os.path.abspath(__file__))
+                print(f"Ejecutando desde código fuente, ruta base: {self.base_path}")
         
-        # Crear el directorio de modelos si no existe (más importante para el modo desarrollo)
-        os.makedirs(self.models_dir, exist_ok=True)
-        logger.info(f"Directorio de modelos configurado en: {self.models_dir}")
+        # Crear directorio para modelos
+        self.models_dir = Path(self.base_path) / "models"
+        self.models_dir.mkdir(exist_ok=True)
         
         # Inicializar modelos
         self.init_models()
-
+    
+    def init_models(self):
+        """Inicializa todos los modelos de reconocimiento facial"""
+        try:
+            # 1. MTCNN para detección precisa de caras
+            print("Cargando MTCNN...")
+            self.mtcnn = MTCNN(
+                image_size=160,
+                margin=0,
+                min_face_size=20,
+                thresholds=[0.6, 0.7, 0.7],
+                factor=0.709,
+                post_process=True,
+                device=self.device
+            )
+            
+            # 2. FaceNet (InceptionResnetV1) pre-entrenado
+            print("Cargando FaceNet...")
+            self.facenet = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
+            
+            # 3. Transformaciones para FaceNet
+            self.facenet_transform = transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.Resize((160, 160)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+            ])
+            
+            # 4. InsightFace (ArcFace)
+            print("Cargando InsightFace...")
+            try:
+                self.insightface_app = insightface.app.FaceAnalysis()
+                self.insightface_app.prepare(ctx_id=0 if torch.cuda.is_available() else -1, 
+                                           det_size=(640, 640))
+                self.use_insightface = True
+            except Exception as e:
+                print(f"InsightFace no disponible: {e}")
+                self.use_insightface = False
+            
+            # 5. dlib face recognition
+            print("Inicializando dlib...")
+            try:
+                self.dlib_detector = dlib.get_frontal_face_detector()
+                
+                # Rutas para los modelos de dlib
+                models_path = os.path.join(self.base_path, "face_recognition_models", "models")
+                
+                # Verificar si los modelos existen en la ruta esperada
+                landmarks_path = os.path.join(models_path, "shape_predictor_68_face_landmarks.dat")
+                if not os.path.exists(landmarks_path):
+                    # Si no existe, intentar descargarlo
+                    landmarks_url = "https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2"
+                    landmarks_path = self.download_dlib_model("shape_predictor_68_face_landmarks.dat", landmarks_url)
+                
+                self.shape_predictor = dlib.shape_predictor(landmarks_path)
+                
+                face_rec_path = os.path.join(models_path, "dlib_face_recognition_resnet_model_v1.dat")
+                if not os.path.exists(face_rec_path):
+                    # Si no existe, intentar descargarlo
+                    face_rec_url = "https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2"
+                    face_rec_path = self.download_dlib_model("dlib_face_recognition_resnet_model_v1.dat", face_rec_url)
+                
+                self.face_encoder = dlib.face_recognition_model_v1(face_rec_path)
+                
+                self.use_dlib = True
+                print("dlib inicializado correctamente")
+                
+            except Exception as e:
+                print(f"Error inicializando dlib: {e}")
+                self.use_dlib = False
+            
+            print("Todos los modelos disponibles cargados exitosamente!")
+            
+        except Exception as e:
+            print(f"Error inicializando modelos: {e}")
+            raise
+    
     def download_dlib_model(self, model_name: str, url: str) -> str:
-        """Descarga un modelo de dlib si no existe."""
-        # --- ¡CAMBIO CLAVE! ---
-        # Usar la ruta absoluta que calculamos en __init__
-        model_path = os.path.join(self.models_dir, model_name)
+        """Descarga un modelo de dlib si no existe"""
+        # Determinar la ruta correcta para guardar el modelo
+        if getattr(sys, 'frozen', False):
+            # Estamos ejecutando desde un exe
+            model_dir = os.path.join(sys._MEIPASS, "face_recognition_models", "models")
+            os.makedirs(model_dir, exist_ok=True)
+            model_path = os.path.join(model_dir, model_name)
+        else:
+            # Estamos ejecutando desde el código fuente
+            model_path = self.models_dir / model_name
         
         if os.path.exists(model_path):
-            logger.info(f"Modelo {model_name} ya existe, saltando descarga...")
+            print(f"Modelo {model_name} ya existe, saltando descarga...")
             return str(model_path)
         
-        logger.info(f"Descargando {model_name}...")
+        print(f"Descargando {model_name}...")
         compressed_path = str(model_path) + ".bz2"
         
         try:
@@ -83,80 +136,18 @@ class AdvancedFaceProcessor:
             
             # Eliminar archivo comprimido
             os.remove(compressed_path)
-            logger.info(f"Modelo {model_name} descargado y descomprimido exitosamente")
+            print(f"Modelo {model_name} descargado y descomprimido exitosamente")
             
         except Exception as e:
-            logger.error(f"Error descargando {model_name}: {e}")
+            print(f"Error descargando {model_name}: {e}")
             if os.path.exists(compressed_path):
                 os.remove(compressed_path)
             raise
         
         return str(model_path)
-        
-    def init_models(self):
-        """Inicializa todos los modelos de reconocimiento facial"""
-        try:
-            # 1. MTCNN para detección precisa de caras
-            logger.info("Cargando MTCNN...")
-            self.mtcnn = MTCNN(
-                image_size=160,
-                margin=0,
-                min_face_size=20,
-                thresholds=[0.6, 0.7, 0.7],
-                factor=0.709,
-                post_process=True,
-                device=self.device
-            )
-            
-            # 2. FaceNet (InceptionResnetV1) pre-entrenado
-            logger.info("Cargando FaceNet...")
-            self.facenet = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
-            
-            # 3. Transformaciones para FaceNet
-            self.facenet_transform = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.Resize((160, 160)),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-            ])
-            
-            # 4. InsightFace (ArcFace)
-            logger.info("Cargando InsightFace...")
-            try:
-                self.insightface_app = insightface.app.FaceAnalysis()
-                self.insightface_app.prepare(ctx_id=0 if torch.cuda.is_available() else -1, 
-                                           det_size=(640, 640))
-                self.use_insightface = True
-            except Exception as e:
-                logger.warning(f"InsightFace no disponible: {e}")
-                self.use_insightface = False
-            
-            # 5. dlib face recognition
-            logger.info("Inicializando dlib...")
-            try:
-                self.dlib_detector = dlib.get_frontal_face_detector()
-                
-                # Descargar modelos de dlib solo si no existen
-                landmarks_url = "https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2"
-                landmarks_path = self.download_dlib_model("shape_predictor_68_face_landmarks.dat", landmarks_url)
-                self.shape_predictor = dlib.shape_predictor(landmarks_path)
-                
-                face_rec_url = "https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2"
-                face_rec_path = self.download_dlib_model("dlib_face_recognition_resnet_model_v1.dat", face_rec_url)
-                self.face_encoder = dlib.face_recognition_model_v1(face_rec_path)
-                
-                self.use_dlib = True
-                logger.info("dlib inicializado correctamente")
-                
-            except Exception as e:
-                logger.error(f"Error inicializando dlib: {e}")
-                self.use_dlib = False
-            
-            logger.info("Todos los modelos disponibles cargados exitosamente!")
-            
-        except Exception as e:
-            logger.error(f"Error inicializando modelos: {e}")
-            raise
+    
+    # [El resto de los métodos de la clase permanecen igual...]
+
     
     def detect_faces_mtcnn(self, image: np.ndarray) -> List[Dict]:
         """Detecta caras usando MTCNN (más preciso)"""
