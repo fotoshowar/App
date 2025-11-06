@@ -165,32 +165,11 @@ jobs:
           echo ^)
           ) > main.spec
 
-      - name: Verify spec file
-        shell: cmd
-        run: |
-          echo Verifying spec file:
-          findstr "datas" main.spec
-
       - name: Build executable with PyInstaller
         shell: cmd
         run: |
           echo Building executable with PyInstaller...
           pyinstaller main.spec
-
-      - name: Verify executable and included files
-        shell: cmd
-        run: |
-          echo Verifying created executable:
-          if exist "dist\main.exe" (
-              echo main.exe found
-              dir "dist\main.exe"
-              
-              echo Verifying dist directory structure:
-              dir /s dist
-          ) else (
-              echo main.exe not found
-              exit 1
-          )
 
       - name: Create final package directory
         shell: cmd
@@ -232,39 +211,6 @@ jobs:
           echo ^)
           ) > "fotoshow-windows\run.bat"
           
-          REM Create README
-          (
-          echo # FOTOSHOW - Windows Package
-          echo.
-          echo ## Execution Instructions
-          echo.
-          echo ### Option 1: Automatic Execution ^(Recommended^)
-          echo 1. Double-click on 'run.bat' file
-          echo 2. Wait for the application to start
-          echo.
-          echo ### Option 2: Manual Execution
-          echo 1. Open a terminal ^(CMD or PowerShell^)
-          echo 2. Navigate to the directory where you extracted the package
-          echo 3. Execute: 'main.exe'
-          echo.
-          echo ## Included Files
-          echo - 'main.exe': Main application executable
-          echo - 'models/': Facial recognition models ^(dlib^)
-          echo - 'static/': Web interface static files
-          echo - 'run.bat': Automatic execution script
-          echo.
-          echo ## Important Notes
-          echo - Make sure all files remain in their respective folders
-          echo - Do not move or delete the 'models/' folder
-          echo - The application needs internet access for some features
-          echo.
-          echo ## System Requirements
-          echo - Windows 10 or higher
-          echo - 4GB RAM or more ^(8GB recommended^)
-          echo - Disk space: 500MB free
-          echo - Web camera ^(optional, for capture function^)
-          ) > "fotoshow-windows\README.md"
-          
           echo Final package content:
           dir /s fotoshow-windows
 
@@ -286,9 +232,3 @@ jobs:
         with:
           name: windows-package
           path: fotoshow-windows.zip
-
-      - name: Upload package directory artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-package-dir
-          path: fotoshow-windows/
