@@ -1,0 +1,36 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Te permite ejecutarlo manualmente
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable with PyInstaller
+        # Este es el comando importante
+        run: |
+          pyinstaller --onefile --add-data "models;models" main.py
+
+      - name: Upload executable artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-exe
+          path: dist/main.exe
