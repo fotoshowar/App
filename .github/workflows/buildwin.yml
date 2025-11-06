@@ -18,6 +18,66 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Create models directory and copy dlib models
+        run: |
+          echo "📁 Creando directorio de modelos local..."
+          mkdir models
+          
+          echo "📦 Instalando face_recognition_models para obtener los archivos..."
+          pip install face_recognition_models
+          
+          echo "🔍 Buscando modelos de dlib..."
+          python -c "
+          import face_recognition_models
+          import os
+          import shutil
+          
+          # Obtener la ruta donde están instalados los modelos
+          models_source_path = os.path.join(os.path.dirname(face_recognition_models.__file__), 'models')
+          print(f'Fuente de modelos: {models_source_path}')
+          
+          # Copiar modelos al directorio local
+          if os.path.exists(models_source_path):
+              for file in os.listdir(models_source_path):
+                  if file.endswith('.dat'):
+                      source_file = os.path.join(models_source_path, file)
+                      dest_file = os.path.join('models', file)
+                      print(f'Copiando {file} a models/')
+                      shutil.copy2(source_file, dest_file)
+              print('✅ Modelos de dlib copiados exitosamente')
+          else:
+              print(f'❌ No se encontró el directorio: {models_source_path}')
+          "
+          
+          echo "📋 Verificando modelos copiados:"
+          dir models
+
+      - name: Download additional models if needed
+        run: |
+          echo "🌐 Verificando y descargando modelos adicionales si es necesario..."
+          
+          # Verificar si tenemos los modelos necesarios
+          if not exist "models\shape_predictor_68_face_landmarks.dat" (
+              echo "⬇️ Descargando shape_predictor_68_face_landmarks.dat..."
+              powershell -Command "Invoke-WebRequest -Uri 'https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2' -OutFile 'models\shape_predictor_68_face_landmarks.dat.bz2'"
+              powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('models\shape_predictor_68_face_landmarks.dat.bz2', 'models')"
+              del "models\shape_predictor_68_face_landmarks.dat.bz2"
+          ) else (
+              echo "✅ shape_predictor_68_face_landmarks.dat ya existe"
+          )
+          
+          if not exist "models\dlib_face_recognition_resnet_model_v1.dat" (
+              echo "⬇️ Descargando dlib_face_recognition_resnet_model_v1.dat..."
+              powershell -Command "Invoke-WebRequest -Uri 'https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2' -OutFile 'models\dlib_face_recognition_resnet_model_v1.dat.bz2'"
+              powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('models\dlib_face_recognition_resnet_model_v1.dat.bz2', 'models')"
+              del "models\dlib_face_recognition_resnet_model_v1.dat.bz2"
+          ) else (
+              echo "✅ dlib_face_recognition_resnet_model_v1.dat ya existe"
+          )
+          
+          echo "📋 Lista final de modelos:"
+          dir models
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -26,7 +86,7 @@ jobs:
 
       - name: Create PyInstaller spec file
         run: |
-          echo "
+          echo @"
           # -*- mode: python ; coding: utf-8 -*-
           
           block_cipher = None
@@ -37,7 +97,7 @@ jobs:
               binaries=[],
               datas=[
                   ('models', 'models'),
-                  ('venv/Lib/site-packages/face_recognition_models/models', 'face_recognition_models/models'),
+                  ('static', 'static'),
               ],
               hiddenimports=[
                   'face_recognition_models',
@@ -58,6 +118,21 @@ jobs:
                   'httpx',
                   'fastapi',
                   'uvicorn',
+                  'torch.nn',
+                  'torch.optim',
+                  'torch.utils.data',
+                  'torch.backends.cudnn',
+                  'torch.autograd',
+                  'torch.serialization',
+                  'onnxruntime',
+                  'onnx',
+                  'yaml',
+                  'tqdm',
+                  'requests',
+                  'PIL._imagingtk',
+                  'PIL._tkinter_finder',
+                  'pkg_resources.py2_warn',
+                  'matplotlib.backends.backend_tkagg',
               ],
               hookspath=[],
               hooksconfig={},
@@ -92,14 +167,89 @@ jobs:
               codesign_identity=None,
               entitlements_file=None,
           )
-          " > main.spec
+          "@ > main.spec
+
+      - name: Verify spec file
+        run: |
+          echo "🔍 Verificando archivo de especificación:"
+          powershell -Command "Get-Content main.spec | Select-String 'datas' -Context 2"
 
       - name: Build executable with PyInstaller
         run: |
+          echo "🔨 Construyendo ejecutable con PyInstaller..."
           pyinstaller main.spec
+
+      - name: Verify executable and included files
+        run: |
+          echo "✅ Verificando ejecutable creado:"
+          if exist "dist\main.exe" (
+              echo "✅ main.exe encontrado"
+              Get-Item "dist\main.exe" | Select-Object Name, Length
+            
+              echo "📁 Verificando estructura del directorio dist:"
+              dir dist /s
+          ) else (
+              echo "❌ main.exe no encontrado"
+              exit 1
+          )
+
+      - name: Create final package directory
+        run: |
+          echo "📦 Creando paquete final..."
+          mkdir fotoshow-windows
+          
+          # Copiar ejecutable
+          copy "dist\main.exe" "fotoshow-windows\"
+          
+          # Copiar archivos estáticos si existen
+          if exist "static" (
+              xcopy /E /I "static" "fotoshow-windows\static"
+          )
+          
+          # Copiar modelos
+          xcopy /E /I "models" "fotoshow-windows\models"
+          
+          # Crear script de ejecución
+          echo "@echo off" > "fotoshow-windows\run.bat"
+          echo "echo Iniciando FOTOSHOW..." >> "fotoshow-windows\run.bat"
+          echo "main.exe" >> "fotoshow-windows\run.bat"
+          echo "pause" >> "fotoshow-windows\run.bat"
+          
+          # Crear README
+          echo "# FOTOSHOW - Windows Package" > "fotoshow-windows\README.md"
+          echo "" >> "fotoshow-windows\README.md"
+          echo "## Instrucciones de Ejecución" >> "fotoshow-windows\README.md"
+          echo "" >> "fotoshow-windows\README.md"
+          echo "1. Haz doble clic en 'run.bat' para iniciar la aplicación" >> "fotoshow-windows\README.md"
+          echo "2. O ejecuta 'main.exe' directamente desde la línea de comandos" >> "fotoshow-windows\README.md"
+          echo "" >> "fotoshow-windows\README.md"
+          echo "## Archivos Incluidos" >> "fotoshow-windows\README.md"
+          echo "- main.exe: Ejecutable principal" >> "fotoshow-windows\README.md"
+          echo "- models/: Modelos de reconocimiento facial" >> "fotoshow-windows\README.md"
+          echo "- static/: Archivos estáticos de la interfaz" >> "fotoshow-windows\README.md"
+          
+          echo "📋 Contenido del paquete final:"
+          dir "fotoshow-windows" /s
+
+      - name: Create ZIP package
+        run: |
+          echo "🗜️ Creando paquete ZIP..."
+          powershell -Command "Compress-Archive -Path 'fotoshow-windows\*' -DestinationPath 'fotoshow-windows.zip' -Force"
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
           path: dist/main.exe
+
+      - name: Upload complete package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: fotoshow-windows.zip
+
+      - name: Upload package directory artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package-dir
+          path: fotoshow-windows/
