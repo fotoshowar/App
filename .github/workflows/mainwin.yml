@@ -19,282 +19,261 @@ jobs:
           python-version: '3.11'
 
       - name: Clean and create models directory
+        shell: cmd
         run: |
-          Write-Host "Preparando directorio de modelos..."
-          if (Test-Path "models") {
-              Write-Host "Eliminando directorio models existente..."
-              Remove-Item -Recurse -Force "models"
-          }
-          Write-Host "Creando directorio de modelos local..."
-          New-Item -ItemType Directory -Name "models"
+          echo Preparing models directory...
+          if exist models (
+              echo Removing existing models directory...
+              rmdir /s /q models
+          )
+          echo Creating local models directory...
+          mkdir models
 
       - name: Install face_recognition_models and copy dlib models
+        shell: cmd
         run: |
-          Write-Host "Instalando face_recognition_models para obtener los archivos..."
+          echo Installing face_recognition_models to get the files...
           pip install face_recognition_models
           
-          Write-Host "Buscando y copiando modelos de dlib..."
-          $env:PYTHONIOENCODING = "utf-8"
-          python -c "
-import face_recognition_models
-import os
-import shutil
-import sys
-
-# Forzar UTF-8 para salida
-if sys.platform == 'win32':
-    import codecs
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
-
-# Obtener la ruta donde están instalados los modelos
-models_source_path = os.path.join(os.path.dirname(face_recognition_models.__file__), 'models')
-print(f'Fuente de modelos: {models_source_path}')
-
-# Copiar modelos al directorio local
-if os.path.exists(models_source_path):
-    copied_files = []
-    for file in os.listdir(models_source_path):
-        if file.endswith('.dat'):
-            source_file = os.path.join(models_source_path, file)
-            dest_file = os.path.join('models', file)
-            print(f'Copiando {file} a models/')
-            shutil.copy2(source_file, dest_file)
-            copied_files.append(file)
-    print(f'Modelos copiados: {copied_files}')
-else:
-    print(f'No se encontró el directorio: {models_source_path}')
-          "
+          echo Searching and copying dlib models...
+          set PYTHONIOENCODING=utf-8
+          python -c "import face_recognition_models; import os; import shutil; models_source_path = os.path.join(os.path.dirname(face_recognition_models.__file__), 'models'); print('Models source:', models_source_path); [shutil.copy2(os.path.join(models_source_path, f), os.path.join('models', f)) for f in os.listdir(models_source_path) if f.endswith('.dat')]; print('Models copied successfully')"
           
-          Write-Host "Verificando modelos copiados:"
-          Get-ChildItem "models"
+          echo Verifying copied models:
+          dir models
 
       - name: Download additional models if needed
+        shell: cmd
         run: |
-          Write-Host "Verificando y descargando modelos adicionales si es necesario..."
+          echo Verifying and downloading additional models if needed...
           
-          # Verificar shape_predictor_68_face_landmarks.dat
-          if (-not (Test-Path "models\shape_predictor_68_face_landmarks.dat")) {
-              Write-Host "Descargando shape_predictor_68_face_landmarks.dat..."
-              Invoke-WebRequest -Uri "https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2" -OutFile "models\shape_predictor_68_face_landmarks.dat.bz2"
-              Add-Type -AssemblyName System.IO.Compression.FileSystem
-              [System.IO.Compression.ZipFile]::ExtractToDirectory("models\shape_predictor_68_face_landmarks.dat.bz2", "models")
-              Remove-Item "models\shape_predictor_68_face_landmarks.dat.bz2"
-              Write-Host "shape_predictor_68_face_landmarks.dat descargado"
-          } else {
-              Write-Host "shape_predictor_68_face_landmarks.dat ya existe"
-          }
+          if not exist "models\shape_predictor_68_face_landmarks.dat" (
+              echo Downloading shape_predictor_68_face_landmarks.dat...
+              powershell -Command "Invoke-WebRequest -Uri 'https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2' -OutFile 'models\shape_predictor_68_face_landmarks.dat.bz2'"
+              powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('models\shape_predictor_68_face_landmarks.dat.bz2', 'models')"
+              del "models\shape_predictor_68_face_landmarks.dat.bz2"
+              echo shape_predictor_68_face_landmarks.dat downloaded
+          ) else (
+              echo shape_predictor_68_face_landmarks.dat already exists
+          )
           
-          # Verificar dlib_face_recognition_resnet_model_v1.dat
-          if (-not (Test-Path "models\dlib_face_recognition_resnet_model_v1.dat")) {
-              Write-Host "Descargando dlib_face_recognition_resnet_model_v1.dat..."
-              Invoke-WebRequest -Uri "https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2" -OutFile "models\dlib_face_recognition_resnet_model_v1.dat.bz2"
-              Add-Type -AssemblyName System.IO.Compression.FileSystem
-              [System.IO.Compression.ZipFile]::ExtractToDirectory("models\dlib_face_recognition_resnet_model_v1.dat.bz2", "models")
-              Remove-Item "models\dlib_face_recognition_resnet_model_v1.dat.bz2"
-              Write-Host "dlib_face_recognition_resnet_model_v1.dat descargado"
-          } else {
-              Write-Host "dlib_face_recognition_resnet_model_v1.dat ya existe"
-          }
+          if not exist "models\dlib_face_recognition_resnet_model_v1.dat" (
+              echo Downloading dlib_face_recognition_resnet_model_v1.dat...
+              powershell -Command "Invoke-WebRequest -Uri 'https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2' -OutFile 'models\dlib_face_recognition_resnet_model_v1.dat.bz2'"
+              powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('models\dlib_face_recognition_resnet_model_v1.dat.bz2', 'models')"
+              del "models\dlib_face_recognition_resnet_model_v1.dat.bz2"
+              echo dlib_face_recognition_resnet_model_v1.dat downloaded
+          ) else (
+              echo dlib_face_recognition_resnet_model_v1.dat already exists
+          )
           
-          Write-Host "Lista final de modelos:"
-          Get-ChildItem "models"
+          echo Final models list:
+          dir models
 
       - name: Install dependencies
+        shell: cmd
         run: |
-          Write-Host "Instalando dependencias del proyecto..."
+          echo Installing project dependencies...
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
 
       - name: Create PyInstaller spec file
+        shell: cmd
         run: |
-          @"
-          # -*- mode: python ; coding: utf-8 -*-
-          
-          block_cipher = None
-          
-          a = Analysis(
-              ['main.py'],
-              pathex=[],
-              binaries=[],
-              datas=[
-                  ('models', 'models'),
-                  ('static', 'static'),
-              ],
-              hiddenimports=[
-                  'face_recognition_models',
-                  'dlib',
-                  'cv2',
-                  'numpy',
-                  'torch',
-                  'torchvision',
-                  'facenet_pytorch',
-                  'insightface',
-                  'scipy',
-                  'sklearn',
-                  'PIL',
-                  'cryptography',
-                  'hkdf',
-                  'aiosqlite',
-                  'chromadb',
-                  'httpx',
-                  'fastapi',
-                  'uvicorn',
-                  'torch.nn',
-                  'torch.optim',
-                  'torch.utils.data',
-                  'torch.backends.cudnn',
-                  'torch.autograd',
-                  'torch.serialization',
-                  'onnxruntime',
-                  'onnx',
-                  'yaml',
-                  'tqdm',
-                  'requests',
-                  'PIL._imagingtk',
-                  'PIL._tkinter_finder',
-                  'pkg_resources.py2_warn',
-                  'matplotlib.backends.backend_tkagg',
-              ],
-              hookspath=[],
-              hooksconfig={},
-              runtime_hooks=[],
-              excludes=[],
-              win_no_prefer_redirects=False,
-              win_private_assemblies=False,
-              cipher=block_cipher,
-              noarchive=False,
-          )
-          
-          pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-          
-          exe = EXE(
-              pyz,
-              a.scripts,
-              a.binaries,
-              a.zipfiles,
-              a.datas,
-              [],
-              name='main',
-              debug=False,
-              bootloader_ignore_signals=False,
-              strip=False,
-              upx=True,
-              upx_exclude=[],
-              runtime_tmpdir=None,
-              console=True,
-              disable_windowed_traceback=False,
-              argv_emulation=False,
-              target_arch=None,
-              codesign_identity=None,
-              entitlements_file=None,
-          )
-          "@ | Out-File -FilePath "main.spec" -Encoding UTF8
+          echo Creating PyInstaller spec file...
+          (
+          echo # -*- mode: python ; coding: utf-8 -*-
+          echo.
+          echo block_cipher = None
+          echo.
+          echo a = Analysis^(
+          echo     ['main.py'],
+          echo     pathex=[],
+          echo     binaries=[],
+          echo     datas=[
+          echo         ^('models', 'models'^),
+          echo         ^('static', 'static'^),
+          echo     ],
+          echo     hiddenimports=[
+          echo         'face_recognition_models',
+          echo         'dlib',
+          echo         'cv2',
+          echo         'numpy',
+          echo         'torch',
+          echo         'torchvision',
+          echo         'facenet_pytorch',
+          echo         'insightface',
+          echo         'scipy',
+          echo         'sklearn',
+          echo         'PIL',
+          echo         'cryptography',
+          echo         'hkdf',
+          echo         'aiosqlite',
+          echo         'chromadb',
+          echo         'httpx',
+          echo         'fastapi',
+          echo         'uvicorn',
+          echo         'torch.nn',
+          echo         'torch.optim',
+          echo         'torch.utils.data',
+          echo         'torch.backends.cudnn',
+          echo         'torch.autograd',
+          echo         'torch.serialization',
+          echo         'onnxruntime',
+          echo         'onnx',
+          echo         'yaml',
+          echo         'tqdm',
+          echo         'requests',
+          echo         'PIL._imagingtk',
+          echo         'PIL._tkinter_finder',
+          echo         'pkg_resources.py2_warn',
+          echo         'matplotlib.backends.backend_tkagg',
+          echo     ],
+          echo     hookspath=[],
+          echo     hooksconfig={},
+          echo     runtime_hooks=[],
+          echo     excludes=[],
+          echo     win_no_prefer_redirects=False,
+          echo     win_private_assemblies=False,
+          echo     cipher=block_cipher,
+          echo     noarchive=False,
+          echo ^)
+          echo.
+          echo pyz = PYZ^(a.pure, a.zipped_data, cipher=block_cipher^)
+          echo.
+          echo exe = EXE^(
+          echo     pyz,
+          echo     a.scripts,
+          echo     a.binaries,
+          echo     a.zipfiles,
+          echo     a.datas,
+          echo     [],
+          echo     name='main',
+          echo     debug=False,
+          echo     bootloader_ignore_signals=False,
+          echo     strip=False,
+          echo     upx=True,
+          echo     upx_exclude=[],
+          echo     runtime_tmpdir=None,
+          echo     console=True,
+          echo     disable_windowed_traceback=False,
+          echo     argv_emulation=False,
+          echo     target_arch=None,
+          echo     codesign_identity=None,
+          echo     entitlements_file=None,
+          echo ^)
+          ) > main.spec
 
       - name: Verify spec file
+        shell: cmd
         run: |
-          Write-Host "Verificando archivo de especificación:"
-          Get-Content "main.spec" | Select-String "datas" -Context 2
+          echo Verifying spec file:
+          findstr "datas" main.spec
 
       - name: Build executable with PyInstaller
+        shell: cmd
         run: |
-          Write-Host "Construyendo ejecutable con PyInstaller..."
+          echo Building executable with PyInstaller...
           pyinstaller main.spec
 
       - name: Verify executable and included files
+        shell: cmd
         run: |
-          Write-Host "Verificando ejecutable creado:"
-          if (Test-Path "dist\main.exe") {
-              Write-Host "main.exe encontrado"
-              Get-Item "dist\main.exe" | Select-Object Name, Length
-            
-              Write-Host "Verificando estructura del directorio dist:"
-              Get-ChildItem "dist" -Recurse
-          } else {
-              Write-Host "main.exe no encontrado"
+          echo Verifying created executable:
+          if exist "dist\main.exe" (
+              echo main.exe found
+              dir "dist\main.exe"
+              
+              echo Verifying dist directory structure:
+              dir /s dist
+          ) else (
+              echo main.exe not found
               exit 1
-          }
+          )
 
       - name: Create final package directory
+        shell: cmd
         run: |
-          Write-Host "Creando paquete final..."
-          New-Item -ItemType Directory -Name "fotoshow-windows" -Force
+          echo Creating final package...
+          mkdir fotoshow-windows
           
-          # Copiar ejecutable
-          Copy-Item "dist\main.exe" "fotoshow-windows\"
+          REM Copy executable
+          copy "dist\main.exe" "fotoshow-windows\"
           
-          # Copiar archivos estáticos si existen
-          if (Test-Path "static") {
-              Write-Host "Copiando archivos estáticos..."
-              Copy-Item -Path "static\*" -Destination "fotoshow-windows\static" -Recurse -Force
-          }
+          REM Copy static files if they exist
+          if exist "static" (
+              echo Copying static files...
+              xcopy /E /I /Y "static" "fotoshow-windows\static"
+          )
           
-          # Copiar modelos
-          Write-Host "Copiando modelos..."
-          Copy-Item -Path "models\*" -Destination "fotoshow-windows\models" -Recurse -Force
+          REM Copy models
+          echo Copying models...
+          xcopy /E /I /Y "models" "fotoshow-windows\models"
           
-          # Crear script de ejecución
-          @"
-          @echo off
-          title FOTOSHOW - Sistema de Reconocimiento Facial
+          REM Create execution script
+          (
+          echo @echo off
+          echo title FOTOSHOW - Facial Recognition System
           echo.
           echo =======================================
           echo       FOTOSHOW
-          echo   Sistema de Reconocimiento Facial
+          echo   Facial Recognition System
           echo =======================================
           echo.
-          echo Iniciando aplicacion...
+          echo Starting application...
           echo.
-          main.exe
-          if errorlevel 1 (
-              echo.
-              echo Error al ejecutar la aplicacion.
-              pause
-              exit /b 1
-          )
-          "@ | Out-File -FilePath "fotoshow-windows\run.bat" -Encoding ASCII
+          echo main.exe
+          echo if errorlevel 1 ^(
+          echo     echo.
+          echo     Error executing the application.
+          echo     pause
+          echo     exit /b 1
+          echo ^)
+          ) > "fotoshow-windows\run.bat"
           
-          # Crear README mejorado
-          @"
-          # FOTOSHOW - Windows Package
+          REM Create README
+          (
+          echo # FOTOSHOW - Windows Package
+          echo.
+          echo ## Execution Instructions
+          echo.
+          echo ### Option 1: Automatic Execution ^(Recommended^)
+          echo 1. Double-click on 'run.bat' file
+          echo 2. Wait for the application to start
+          echo.
+          echo ### Option 2: Manual Execution
+          echo 1. Open a terminal ^(CMD or PowerShell^)
+          echo 2. Navigate to the directory where you extracted the package
+          echo 3. Execute: 'main.exe'
+          echo.
+          echo ## Included Files
+          echo - 'main.exe': Main application executable
+          echo - 'models/': Facial recognition models ^(dlib^)
+          echo - 'static/': Web interface static files
+          echo - 'run.bat': Automatic execution script
+          echo.
+          echo ## Important Notes
+          echo - Make sure all files remain in their respective folders
+          echo - Do not move or delete the 'models/' folder
+          echo - The application needs internet access for some features
+          echo.
+          echo ## System Requirements
+          echo - Windows 10 or higher
+          echo - 4GB RAM or more ^(8GB recommended^)
+          echo - Disk space: 500MB free
+          echo - Web camera ^(optional, for capture function^)
+          ) > "fotoshow-windows\README.md"
           
-          ## Instructions d'Execution
-          
-          ### Option 1: Execution Automatique (Recommandee)
-          1. Double-cliquez sur le fichier 'run.bat'
-          2. Attendez que l'application demarre
-          
-          ### Option 2: Execution Manuelle
-          1. Ouvrez un terminal (CMD ou PowerShell)
-          2. Naviguez vers le repertoire ou vous avez decompresse le paquet
-          3. Executez: 'main.exe'
-          
-          ## Fichiers Inclus
-          - 'main.exe': Executable principal de l'application
-          - 'models/': Modeles de reconnaissance faciale (dlib)
-          - 'static/': Fichiers statiques de l'interface web
-          - 'run.bat': Script d'execution automatique
-          
-          ## Notes Importantes
-          - Assurez-vous que tous les fichiers restent dans leurs dossiers respectifs
-          - Ne deplacez ni ne supprimez le dossier 'models/'
-          - L'application a besoin d'acces internet pour certaines fonctionnalites
-          
-          ## Configuration Systeme Requise
-          - Windows 10 ou superieur
-          - 4GB de RAM ou plus (recommande 8GB)
-          - Espace disque: 500MB libres
-          - Camera web (optionnel, pour fonction de capture)
-          "@ | Out-File -FilePath "fotoshow-windows\README.md" -Encoding UTF8
-          
-          Write-Host "Contenu du paquet final:"
-          Get-ChildItem "fotoshow-windows" -Recurse
+          echo Final package content:
+          dir /s fotoshow-windows
 
       - name: Create ZIP package
+        shell: cmd
         run: |
-          Write-Host "Creant le paquet ZIP..."
-          Compress-Archive -Path "fotoshow-windows\*" -DestinationPath "fotoshow-windows.zip" -Force
-          Write-Host "Paquet ZIP cree: fotoshow-windows.zip"
+          echo Creating ZIP package...
+          powershell -Command "Compress-Archive -Path 'fotoshow-windows\*' -DestinationPath 'fotoshow-windows.zip' -Force"
+          echo ZIP package created: fotoshow-windows.zip
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
