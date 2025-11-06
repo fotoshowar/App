@@ -18,15 +18,22 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Create models directory and copy dlib models
+      - name: Clean and create models directory
         run: |
+          echo "📁 Preparando directorio de modelos..."
+          if exist models (
+              echo "🗑️ Eliminando directorio models existente..."
+              rmdir /s /q models
+          )
           echo "📁 Creando directorio de modelos local..."
           mkdir models
-          
+
+      - name: Install face_recognition_models and copy dlib models
+        run: |
           echo "📦 Instalando face_recognition_models para obtener los archivos..."
           pip install face_recognition_models
           
-          echo "🔍 Buscando modelos de dlib..."
+          echo "🔍 Buscando y copiando modelos de dlib..."
           python -c "
           import face_recognition_models
           import os
@@ -38,13 +45,15 @@ jobs:
           
           # Copiar modelos al directorio local
           if os.path.exists(models_source_path):
+              copied_files = []
               for file in os.listdir(models_source_path):
                   if file.endswith('.dat'):
                       source_file = os.path.join(models_source_path, file)
                       dest_file = os.path.join('models', file)
                       print(f'Copiando {file} a models/')
                       shutil.copy2(source_file, dest_file)
-              print('✅ Modelos de dlib copiados exitosamente')
+                      copied_files.append(file)
+              print(f'✅ Modelos copiados: {copied_files}')
           else:
               print(f'❌ No se encontró el directorio: {models_source_path}')
           "
@@ -56,21 +65,24 @@ jobs:
         run: |
           echo "🌐 Verificando y descargando modelos adicionales si es necesario..."
           
-          # Verificar si tenemos los modelos necesarios
+          # Verificar shape_predictor_68_face_landmarks.dat
           if not exist "models\shape_predictor_68_face_landmarks.dat" (
               echo "⬇️ Descargando shape_predictor_68_face_landmarks.dat..."
               powershell -Command "Invoke-WebRequest -Uri 'https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2' -OutFile 'models\shape_predictor_68_face_landmarks.dat.bz2'"
               powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('models\shape_predictor_68_face_landmarks.dat.bz2', 'models')"
               del "models\shape_predictor_68_face_landmarks.dat.bz2"
+              echo "✅ shape_predictor_68_face_landmarks.dat descargado"
           ) else (
               echo "✅ shape_predictor_68_face_landmarks.dat ya existe"
           )
           
+          # Verificar dlib_face_recognition_resnet_model_v1.dat
           if not exist "models\dlib_face_recognition_resnet_model_v1.dat" (
               echo "⬇️ Descargando dlib_face_recognition_resnet_model_v1.dat..."
               powershell -Command "Invoke-WebRequest -Uri 'https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2' -OutFile 'models\dlib_face_recognition_resnet_model_v1.dat.bz2'"
               powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('models\dlib_face_recognition_resnet_model_v1.dat.bz2', 'models')"
               del "models\dlib_face_recognition_resnet_model_v1.dat.bz2"
+              echo "✅ dlib_face_recognition_resnet_model_v1.dat descargado"
           ) else (
               echo "✅ dlib_face_recognition_resnet_model_v1.dat ya existe"
           )
@@ -80,6 +92,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          echo "📦 Instalando dependencias del proyecto..."
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
@@ -203,30 +216,63 @@ jobs:
           
           # Copiar archivos estáticos si existen
           if exist "static" (
-              xcopy /E /I "static" "fotoshow-windows\static"
+              echo "📁 Copiando archivos estáticos..."
+              xcopy /E /I /Y "static" "fotoshow-windows\static"
           )
           
           # Copiar modelos
-          xcopy /E /I "models" "fotoshow-windows\models"
+          echo "📁 Copiando modelos..."
+          xcopy /E /I /Y "models" "fotoshow-windows\models"
           
           # Crear script de ejecución
           echo "@echo off" > "fotoshow-windows\run.bat"
-          echo "echo Iniciando FOTOSHOW..." >> "fotoshow-windows\run.bat"
+          echo "title FOTOSHOW - Sistema de Reconocimiento Facial" >> "fotoshow-windows\run.bat"
+          echo "echo." >> "fotoshow-windows\run.bat"
+          echo "echo =======================================" >> "fotoshow-windows\run.bat"
+          echo "echo       FOTOSHOW" >> "fotoshow-windows\run.bat"
+          echo "echo   Sistema de Reconocimiento Facial" >> "fotoshow-windows\run.bat"
+          echo "echo =======================================" >> "fotoshow-windows\run.bat"
+          echo "echo." >> "fotoshow-windows\run.bat"
+          echo "echo Iniciando aplicacion..." >> "fotoshow-windows\run.bat"
+          echo "echo." >> "fotoshow-windows\run.bat"
           echo "main.exe" >> "fotoshow-windows\run.bat"
-          echo "pause" >> "fotoshow-windows\run.bat"
+          echo "if errorlevel 1 (" >> "fotoshow-windows\run.bat"
+          echo "    echo." >> "fotoshow-windows\run.bat"
+          echo "    echo Error al ejecutar la aplicacion." >> "fotoshow-windows\run.bat"
+          echo "    pause" >> "fotoshow-windows\run.bat"
+          echo "    exit /b 1" >> "fotoshow-windows\run.bat"
+          echo ")" >> "fotoshow-windows\run.bat"
           
-          # Crear README
+          # Crear README mejorado
           echo "# FOTOSHOW - Windows Package" > "fotoshow-windows\README.md"
           echo "" >> "fotoshow-windows\README.md"
-          echo "## Instrucciones de Ejecución" >> "fotoshow-windows\README.md"
+          echo "## 🚀 Instrucciones de Ejecución" >> "fotoshow-windows\README.md"
           echo "" >> "fotoshow-windows\README.md"
-          echo "1. Haz doble clic en 'run.bat' para iniciar la aplicación" >> "fotoshow-windows\README.md"
-          echo "2. O ejecuta 'main.exe' directamente desde la línea de comandos" >> "fotoshow-windows\README.md"
+          echo "### Opción 1: Ejecución Automática (Recomendada)" >> "fotoshow-windows\README.md"
+          echo "1. Haz doble clic en el archivo 'run.bat'" >> "fotoshow-windows\README.md"
+          echo "2. Espera a que la aplicación se inicie" >> "fotoshow-windows\README.md"
           echo "" >> "fotoshow-windows\README.md"
-          echo "## Archivos Incluidos" >> "fotoshow-windows\README.md"
-          echo "- main.exe: Ejecutable principal" >> "fotoshow-windows\README.md"
-          echo "- models/: Modelos de reconocimiento facial" >> "fotoshow-windows\README.md"
-          echo "- static/: Archivos estáticos de la interfaz" >> "fotoshow-windows\README.md"
+          echo "### Opción 2: Ejecución Manual" >> "fotoshow-windows\README.md"
+          echo "1. Abre una terminal (CMD o PowerShell)" >> "fotoshow-windows\README.md"
+          echo "2. Navega al directorio donde descomprimiste el paquete" >> "fotoshow-windows\README.md"
+          echo "3. Ejecuta: 'main.exe'" >> "fotoshow-windows\README.md"
+          echo "" >> "fotoshow-windows\README.md"
+          echo "## 📁 Archivos Incluidos" >> "fotoshow-windows\README.md"
+          echo "- 'main.exe': Ejecutable principal de la aplicación" >> "fotoshow-windows\README.md"
+          echo "- 'models/': Modelos de reconocimiento facial (dlib)" >> "fotoshow-windows\README.md"
+          echo "- 'static/': Archivos estáticos de la interfaz web" >> "fotoshow-windows\README.md"
+          echo "- 'run.bat': Script de ejecución automática" >> "fotoshow-windows\README.md"
+          echo "" >> "fotoshow-windows\README.md"
+          echo "## ⚠️ Notas Importantes" >> "fotoshow-windows\README.md"
+          echo "- Asegúrate de que todos los archivos permanezcan en sus carpetas respectivas" >> "fotoshow-windows\README.md"
+          echo "- No muevas ni elimines la carpeta 'models/'" >> "fotoshow-windows\README.md"
+          echo "- La aplicación necesita acceso a internet para algunas funcionalidades" >> "fotoshow-windows\README.md"
+          echo "" >> "fotoshow-windows\README.md"
+          echo "## 🔧 Requisitos del Sistema" >> "fotoshow-windows\README.md"
+          echo "- Windows 10 o superior" >> "fotoshow-windows\README.md"
+          echo "- 4GB de RAM o más (recomendado 8GB)" >> "fotoshow-windows\README.md"
+          echo "- Espacio en disco: 500MB libres" >> "fotoshow-windows\README.md"
+          echo "- Cámara web (opcional, para función de captura)" >> "fotoshow-windows\README.md"
           
           echo "📋 Contenido del paquete final:"
           dir "fotoshow-windows" /s
@@ -235,6 +281,7 @@ jobs:
         run: |
           echo "🗜️ Creando paquete ZIP..."
           powershell -Command "Compress-Archive -Path 'fotoshow-windows\*' -DestinationPath 'fotoshow-windows.zip' -Force"
+          echo "✅ Paquete ZIP creado: fotoshow-windows.zip"
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
