@@ -20,20 +20,20 @@ jobs:
 
       - name: Clean and create models directory
         run: |
-          echo "📁 Preparando directorio de modelos..."
-          if exist models (
-              echo "🗑️ Eliminando directorio models existente..."
-              rmdir /s /q models
-          )
-          echo "📁 Creando directorio de modelos local..."
-          mkdir models
+          Write-Host "📁 Preparando directorio de modelos..."
+          if (Test-Path "models") {
+              Write-Host "🗑️ Eliminando directorio models existente..."
+              Remove-Item -Recurse -Force "models"
+          }
+          Write-Host "📁 Creando directorio de modelos local..."
+          New-Item -ItemType Directory -Name "models"
 
       - name: Install face_recognition_models and copy dlib models
         run: |
-          echo "📦 Instalando face_recognition_models para obtener los archivos..."
+          Write-Host "📦 Instalando face_recognition_models para obtener los archivos..."
           pip install face_recognition_models
           
-          echo "🔍 Buscando y copiando modelos de dlib..."
+          Write-Host "🔍 Buscando y copiando modelos de dlib..."
           python -c "
           import face_recognition_models
           import os
@@ -58,48 +58,50 @@ jobs:
               print(f'❌ No se encontró el directorio: {models_source_path}')
           "
           
-          echo "📋 Verificando modelos copiados:"
-          dir models
+          Write-Host "📋 Verificando modelos copiados:"
+          Get-ChildItem "models"
 
       - name: Download additional models if needed
         run: |
-          echo "🌐 Verificando y descargando modelos adicionales si es necesario..."
+          Write-Host "🌐 Verificando y descargando modelos adicionales si es necesario..."
           
           # Verificar shape_predictor_68_face_landmarks.dat
-          if not exist "models\shape_predictor_68_face_landmarks.dat" (
-              echo "⬇️ Descargando shape_predictor_68_face_landmarks.dat..."
-              powershell -Command "Invoke-WebRequest -Uri 'https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2' -OutFile 'models\shape_predictor_68_face_landmarks.dat.bz2'"
-              powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('models\shape_predictor_68_face_landmarks.dat.bz2', 'models')"
-              del "models\shape_predictor_68_face_landmarks.dat.bz2"
-              echo "✅ shape_predictor_68_face_landmarks.dat descargado"
-          ) else (
-              echo "✅ shape_predictor_68_face_landmarks.dat ya existe"
-          )
+          if (-not (Test-Path "models\shape_predictor_68_face_landmarks.dat")) {
+              Write-Host "⬇️ Descargando shape_predictor_68_face_landmarks.dat..."
+              Invoke-WebRequest -Uri "https://github.com/davisking/dlib-models/raw/master/shape_predictor_68_face_landmarks.dat.bz2" -OutFile "models\shape_predictor_68_face_landmarks.dat.bz2"
+              Add-Type -AssemblyName System.IO.Compression.FileSystem
+              [System.IO.Compression.ZipFile]::ExtractToDirectory("models\shape_predictor_68_face_landmarks.dat.bz2", "models")
+              Remove-Item "models\shape_predictor_68_face_landmarks.dat.bz2"
+              Write-Host "✅ shape_predictor_68_face_landmarks.dat descargado"
+          } else {
+              Write-Host "✅ shape_predictor_68_face_landmarks.dat ya existe"
+          }
           
           # Verificar dlib_face_recognition_resnet_model_v1.dat
-          if not exist "models\dlib_face_recognition_resnet_model_v1.dat" (
-              echo "⬇️ Descargando dlib_face_recognition_resnet_model_v1.dat..."
-              powershell -Command "Invoke-WebRequest -Uri 'https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2' -OutFile 'models\dlib_face_recognition_resnet_model_v1.dat.bz2'"
-              powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('models\dlib_face_recognition_resnet_model_v1.dat.bz2', 'models')"
-              del "models\dlib_face_recognition_resnet_model_v1.dat.bz2"
-              echo "✅ dlib_face_recognition_resnet_model_v1.dat descargado"
-          ) else (
-              echo "✅ dlib_face_recognition_resnet_model_v1.dat ya existe"
-          )
+          if (-not (Test-Path "models\dlib_face_recognition_resnet_model_v1.dat")) {
+              Write-Host "⬇️ Descargando dlib_face_recognition_resnet_model_v1.dat..."
+              Invoke-WebRequest -Uri "https://github.com/davisking/dlib-models/raw/master/dlib_face_recognition_resnet_model_v1.dat.bz2" -OutFile "models\dlib_face_recognition_resnet_model_v1.dat.bz2"
+              Add-Type -AssemblyName System.IO.Compression.FileSystem
+              [System.IO.Compression.ZipFile]::ExtractToDirectory("models\dlib_face_recognition_resnet_model_v1.dat.bz2", "models")
+              Remove-Item "models\dlib_face_recognition_resnet_model_v1.dat.bz2"
+              Write-Host "✅ dlib_face_recognition_resnet_model_v1.dat descargado"
+          } else {
+              Write-Host "✅ dlib_face_recognition_resnet_model_v1.dat ya existe"
+          }
           
-          echo "📋 Lista final de modelos:"
-          dir models
+          Write-Host "📋 Lista final de modelos:"
+          Get-ChildItem "models"
 
       - name: Install dependencies
         run: |
-          echo "📦 Instalando dependencias del proyecto..."
+          Write-Host "📦 Instalando dependencias del proyecto..."
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
 
       - name: Create PyInstaller spec file
         run: |
-          echo @"
+          @"
           # -*- mode: python ; coding: utf-8 -*-
           
           block_cipher = None
@@ -148,7 +150,7 @@ jobs:
                   'matplotlib.backends.backend_tkagg',
               ],
               hookspath=[],
-              hooksconfig={},
+              hooksconfig={],
               runtime_hooks=[],
               excludes=[],
               win_no_prefer_redirects=False,
@@ -180,108 +182,112 @@ jobs:
               codesign_identity=None,
               entitlements_file=None,
           )
-          "@ > main.spec
+          "@ | Out-File -FilePath "main.spec" -Encoding UTF8
 
       - name: Verify spec file
         run: |
-          echo "🔍 Verificando archivo de especificación:"
-          powershell -Command "Get-Content main.spec | Select-String 'datas' -Context 2"
+          Write-Host "🔍 Verificando archivo de especificación:"
+          Get-Content "main.spec" | Select-String "datas" -Context 2
 
       - name: Build executable with PyInstaller
         run: |
-          echo "🔨 Construyendo ejecutable con PyInstaller..."
+          Write-Host "🔨 Construyendo ejecutable con PyInstaller..."
           pyinstaller main.spec
 
       - name: Verify executable and included files
         run: |
-          echo "✅ Verificando ejecutable creado:"
-          if exist "dist\main.exe" (
-              echo "✅ main.exe encontrado"
+          Write-Host "✅ Verificando ejecutable creado:"
+          if (Test-Path "dist\main.exe") {
+              Write-Host "✅ main.exe encontrado"
               Get-Item "dist\main.exe" | Select-Object Name, Length
             
-              echo "📁 Verificando estructura del directorio dist:"
-              dir dist /s
-          ) else (
-              echo "❌ main.exe no encontrado"
+              Write-Host "📁 Verificando estructura del directorio dist:"
+              Get-ChildItem "dist" -Recurse
+          } else {
+              Write-Host "❌ main.exe no encontrado"
               exit 1
-          )
+          }
 
       - name: Create final package directory
         run: |
-          echo "📦 Creando paquete final..."
-          mkdir fotoshow-windows
+          Write-Host "📦 Creando paquete final..."
+          New-Item -ItemType Directory -Name "fotoshow-windows" -Force
           
           # Copiar ejecutable
-          copy "dist\main.exe" "fotoshow-windows\"
+          Copy-Item "dist\main.exe" "fotoshow-windows\"
           
           # Copiar archivos estáticos si existen
-          if exist "static" (
-              echo "📁 Copiando archivos estáticos..."
-              xcopy /E /I /Y "static" "fotoshow-windows\static"
-          )
+          if (Test-Path "static") {
+              Write-Host "📁 Copiando archivos estáticos..."
+              Copy-Item -Path "static\*" -Destination "fotoshow-windows\static" -Recurse -Force
+          }
           
           # Copiar modelos
-          echo "📁 Copiando modelos..."
-          xcopy /E /I /Y "models" "fotoshow-windows\models"
+          Write-Host "📁 Copiando modelos..."
+          Copy-Item -Path "models\*" -Destination "fotoshow-windows\models" -Recurse -Force
           
           # Crear script de ejecución
-          echo "@echo off" > "fotoshow-windows\run.bat"
-          echo "title FOTOSHOW - Sistema de Reconocimiento Facial" >> "fotoshow-windows\run.bat"
-          echo "echo." >> "fotoshow-windows\run.bat"
-          echo "echo =======================================" >> "fotoshow-windows\run.bat"
-          echo "echo       FOTOSHOW" >> "fotoshow-windows\run.bat"
-          echo "echo   Sistema de Reconocimiento Facial" >> "fotoshow-windows\run.bat"
-          echo "echo =======================================" >> "fotoshow-windows\run.bat"
-          echo "echo." >> "fotoshow-windows\run.bat"
-          echo "echo Iniciando aplicacion..." >> "fotoshow-windows\run.bat"
-          echo "echo." >> "fotoshow-windows\run.bat"
-          echo "main.exe" >> "fotoshow-windows\run.bat"
-          echo "if errorlevel 1 (" >> "fotoshow-windows\run.bat"
-          echo "    echo." >> "fotoshow-windows\run.bat"
-          echo "    echo Error al ejecutar la aplicacion." >> "fotoshow-windows\run.bat"
-          echo "    pause" >> "fotoshow-windows\run.bat"
-          echo "    exit /b 1" >> "fotoshow-windows\run.bat"
-          echo ")" >> "fotoshow-windows\run.bat"
+          @"
+          @echo off
+          title FOTOSHOW - Sistema de Reconocimiento Facial
+          echo.
+          echo =======================================
+          echo       FOTOSHOW
+          echo   Sistema de Reconocimiento Facial
+          echo =======================================
+          echo.
+          echo Iniciando aplicacion...
+          echo.
+          main.exe
+          if errorlevel 1 (
+              echo.
+              echo Error al ejecutar la aplicacion.
+              pause
+              exit /b 1
+          )
+          "@ | Out-File -FilePath "fotoshow-windows\run.bat" -Encoding ASCII
           
           # Crear README mejorado
-          echo "# FOTOSHOW - Windows Package" > "fotoshow-windows\README.md"
-          echo "" >> "fotoshow-windows\README.md"
-          echo "## 🚀 Instrucciones de Ejecución" >> "fotoshow-windows\README.md"
-          echo "" >> "fotoshow-windows\README.md"
-          echo "### Opción 1: Ejecución Automática (Recomendada)" >> "fotoshow-windows\README.md"
-          echo "1. Haz doble clic en el archivo 'run.bat'" >> "fotoshow-windows\README.md"
-          echo "2. Espera a que la aplicación se inicie" >> "fotoshow-windows\README.md"
-          echo "" >> "fotoshow-windows\README.md"
-          echo "### Opción 2: Ejecución Manual" >> "fotoshow-windows\README.md"
-          echo "1. Abre una terminal (CMD o PowerShell)" >> "fotoshow-windows\README.md"
-          echo "2. Navega al directorio donde descomprimiste el paquete" >> "fotoshow-windows\README.md"
-          echo "3. Ejecuta: 'main.exe'" >> "fotoshow-windows\README.md"
-          echo "" >> "fotoshow-windows\README.md"
-          echo "## 📁 Archivos Incluidos" >> "fotoshow-windows\README.md"
-          echo "- 'main.exe': Ejecutable principal de la aplicación" >> "fotoshow-windows\README.md"
-          echo "- 'models/': Modelos de reconocimiento facial (dlib)" >> "fotoshow-windows\README.md"
-          echo "- 'static/': Archivos estáticos de la interfaz web" >> "fotoshow-windows\README.md"
-          echo "- 'run.bat': Script de ejecución automática" >> "fotoshow-windows\README.md"
-          echo "" >> "fotoshow-windows\README.md"
-          echo "## ⚠️ Notas Importantes" >> "fotoshow-windows\README.md"
-          echo "- Asegúrate de que todos los archivos permanezcan en sus carpetas respectivas" >> "fotoshow-windows\README.md"
-          echo "- No muevas ni elimines la carpeta 'models/'" >> "fotoshow-windows\README.md"
-          echo "- La aplicación necesita acceso a internet para algunas funcionalidades" >> "fotoshow-windows\README.md"
-          echo "" >> "fotoshow-windows\README.md"
-          echo "## 🔧 Requisitos del Sistema" >> "fotoshow-windows\README.md"
-          echo "- Windows 10 o superior" >> "fotoshow-windows\README.md"
-          echo "- 4GB de RAM o más (recomendado 8GB)" >> "fotoshow-windows\README.md"
-          echo "- Espacio en disco: 500MB libres" >> "fotoshow-windows\README.md"
-          echo "- Cámara web (opcional, para función de captura)" >> "fotoshow-windows\README.md"
+          @"
+          # FOTOSHOW - Windows Package
           
-          echo "📋 Contenido del paquete final:"
-          dir "fotoshow-windows" /s
+          ## 🚀 Instrucciones de Ejecución
+          
+          ### Opción 1: Ejecución Automática (Recomendada)
+          1. Haz doble clic en el archivo 'run.bat'
+          2. Espera a que la aplicación se inicie
+          
+          ### Opción 2: Ejecución Manual
+          1. Abre una terminal (CMD o PowerShell)
+          2. Navega al directorio donde descomprimiste el paquete
+          3. Ejecuta: 'main.exe'
+          
+          ## 📁 Archivos Incluidos
+          - 'main.exe': Ejecutable principal de la aplicación
+          - 'models/': Modelos de reconocimiento facial (dlib)
+          - 'static/': Archivos estáticos de la interfaz web
+          - 'run.bat': Script de ejecución automática
+          
+          ## ⚠️ Notas Importantes
+          - Asegúrate de que todos los archivos permanezcan en sus carpetas respectivas
+          - No muevas ni elimines la carpeta 'models/'
+          - La aplicación necesita acceso a internet para algunas funcionalidades
+          
+          ## 🔧 Requisitos del Sistema
+          - Windows 10 o superior
+          - 4GB de RAM o más (recomendado 8GB)
+          - Espacio en disco: 500MB libres
+          - Cámara web (opcional, para función de captura)
+          "@ | Out-File -FilePath "fotoshow-windows\README.md" -Encoding UTF8
+          
+          Write-Host "📋 Contenido del paquete final:"
+          Get-ChildItem "fotoshow-windows" -Recurse
 
       - name: Create ZIP package
         run: |
-          echo "🗜️ Creando paquete ZIP..."
-          powershell -Command "Compress-Archive -Path 'fotoshow-windows\*' -DestinationPath 'fotoshow-windows.zip' -Force"
-          echo "✅ Paquete ZIP creado: fotoshow-windows.zip"
+          Write-Host "🗜️ Creando paquete ZIP..."
+          Compress-Archive -Path "fotoshow-windows\*" -DestinationPath "fotoshow-windows.zip" -Force
+          Write-Host "✅ Paquete ZIP creado: fotoshow-windows.zip"
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
