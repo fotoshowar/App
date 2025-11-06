@@ -24,10 +24,79 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build executable with PyInstaller
-        # Este es el comando importante
+      - name: Create PyInstaller spec file
         run: |
-          pyinstaller --onefile --add-data "models;models" main.py
+          echo "
+          # -*- mode: python ; coding: utf-8 -*-
+          
+          block_cipher = None
+          
+          a = Analysis(
+              ['main.py'],
+              pathex=[],
+              binaries=[],
+              datas=[
+                  ('models', 'models'),
+                  ('venv/Lib/site-packages/face_recognition_models/models', 'face_recognition_models/models'),
+              ],
+              hiddenimports=[
+                  'face_recognition_models',
+                  'dlib',
+                  'cv2',
+                  'numpy',
+                  'torch',
+                  'torchvision',
+                  'facenet_pytorch',
+                  'insightface',
+                  'scipy',
+                  'sklearn',
+                  'PIL',
+                  'cryptography',
+                  'hkdf',
+                  'aiosqlite',
+                  'chromadb',
+                  'httpx',
+                  'fastapi',
+                  'uvicorn',
+              ],
+              hookspath=[],
+              hooksconfig={},
+              runtime_hooks=[],
+              excludes=[],
+              win_no_prefer_redirects=False,
+              win_private_assemblies=False,
+              cipher=block_cipher,
+              noarchive=False,
+          )
+          
+          pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+          
+          exe = EXE(
+              pyz,
+              a.scripts,
+              a.binaries,
+              a.zipfiles,
+              a.datas,
+              [],
+              name='main',
+              debug=False,
+              bootloader_ignore_signals=False,
+              strip=False,
+              upx=True,
+              upx_exclude=[],
+              runtime_tmpdir=None,
+              console=True,
+              disable_windowed_traceback=False,
+              argv_emulation=False,
+              target_arch=None,
+              codesign_identity=None,
+              entitlements_file=None,
+          )
+          " > main.spec
+
+      - name: Build executable with PyInstaller
+        run: |
+          pyinstaller main.spec
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
