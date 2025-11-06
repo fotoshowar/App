@@ -1,0 +1,190 @@
+name: Build Ubuntu Executable
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Te permite ejecutarlo manualmente
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            libopenblas-dev \
+            liblapack-dev \
+            libx11-dev \
+            libgtk-3-dev \
+            python3-dev \
+            python3-pip \
+            pkg-config \
+            libavcodec-dev \
+            libavformat-dev \
+            libswscale-dev \
+            libtbb2 \
+            libtbb-dev \
+            libjpeg-dev \
+            libpng-dev \
+            libtiff-dev \
+            libdc1394-22-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Create PyInstaller spec file
+        run: |
+          echo "
+          # -*- mode: python ; coding: utf-8 -*-
+          
+          block_cipher = None
+          
+          a = Analysis(
+              ['main.py'],
+              pathex=[],
+              binaries=[],
+              datas=[
+                  ('models', 'models'),
+                  ('/opt/hostedtoolcache/Python/3.11.*/x64/lib/python3.11/site-packages/face_recognition_models/models', 'face_recognition_models/models'),
+              ],
+              hiddenimports=[
+                  'face_recognition_models',
+                  'dlib',
+                  'cv2',
+                  'numpy',
+                  'torch',
+                  'torchvision',
+                  'facenet_pytorch',
+                  'insightface',
+                  'scipy',
+                  'sklearn',
+                  'PIL',
+                  'cryptography',
+                  'hkdf',
+                  'aiosqlite',
+                  'chromadb',
+                  'httpx',
+                  'fastapi',
+                  'uvicorn',
+                  'torch.nn',
+                  'torch.optim',
+                  'torch.utils.data',
+                  'torch.backends.cudnn',
+                  'torch.autograd',
+                  'torch.serialization',
+                  'onnxruntime',
+                  'onnx',
+                  'yaml',
+                  'tqdm',
+                  'requests',
+                  'PIL._imagingtk',
+                  'PIL._tkinter_finder',
+                  'pkg_resources.py2_warn',
+                  'matplotlib.backends.backend_tkagg',
+              ],
+              hookspath=[],
+              hooksconfig={},
+              runtime_hooks=[],
+              excludes=[],
+              win_no_prefer_redirects=False,
+              win_private_assemblies=False,
+              cipher=block_cipher,
+              noarchive=False,
+          )
+          
+          pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+          
+          exe = EXE(
+              pyz,
+              a.scripts,
+              a.binaries,
+              a.zipfiles,
+              a.datas,
+              [],
+              name='main',
+              debug=False,
+              bootloader_ignore_signals=False,
+              strip=False,
+              upx=True,
+              upx_exclude=[],
+              runtime_tmpdir=None,
+              console=True,
+              disable_windowed_traceback=False,
+              argv_emulation=False,
+              target_arch=None,
+              codesign_identity=None,
+              entitlements_file=None,
+          )
+          " > main.spec
+
+      - name: Build executable with PyInstaller
+        run: |
+          pyinstaller main.spec
+
+      - name: Create Ubuntu package directory
+        run: |
+          mkdir -p ubuntu-package
+          cp dist/main ubuntu-package/
+          cp -r static ubuntu-package/
+          cp -r models ubuntu-package/
+          cp requirements.txt ubuntu-package/
+          
+          # Crear script de ejecución
+          echo '#!/bin/bash' > ubuntu-package/run.sh
+          echo 'DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"' >> ubuntu-package/run.sh
+          echo 'cd "$DIR"' >> ubuntu-package/run.sh
+          echo 'export LD_LIBRARY_PATH="$DIR:$LD_LIBRARY_PATH"' >> ubuntu-package/run.sh
+          echo './main' >> ubuntu-package/run.sh
+          chmod +x ubuntu-package/run.sh
+          
+          # Crear archivo README
+          echo "# FOTOSHOW - Ubuntu Package" > ubuntu-package/README.md
+          echo "" >> ubuntu-package/README.md
+          echo "## Instrucciones de Ejecución" >> ubuntu-package/README.md
+          echo "" >> ubuntu-package/README.md
+          echo "1. Asegúrate de tener los permisos necesarios:" >> ubuntu-package/README.md
+          echo "   \`\`\`bash" >> ubuntu-package/README.md
+          echo "   chmod +x run.sh" >> ubuntu-package/README.md
+          echo "   chmod +x main" >> ubuntu-package/README.md
+          echo "   \`\`\`" >> ubuntu-package/README.md
+          echo "" >> ubuntu-package/README.md
+          echo "2. Ejecuta la aplicación:" >> ubuntu-package/README.md
+          echo "   \`\`\`bash" >> ubuntu-package/README.md
+          echo "   ./run.sh" >> ubuntu-package/README.md
+          echo "   \`\`\`" >> ubuntu-package/README.md
+          echo "" >> ubuntu-package/README.md
+          echo "## Requisitos del Sistema" >> ubuntu-package/README.md
+          echo "- Ubuntu 18.04 o superior" >> ubuntu-package/README.md
+          echo "- Python 3.11 (incluido en el ejecutable)" >> ubuntu-package/README.md
+          echo "- Acceso a cámara web (opcional)" >> ubuntu-package/README.md
+
+      - name: Create tar.gz package
+        run: |
+          tar -czf fotoshow-ubuntu.tar.gz -C ubuntu-package .
+
+      - name: Upload Ubuntu executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-executable
+          path: fotoshow-ubuntu.tar.gz
+
+      - name: Upload Ubuntu package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-package
+          path: ubuntu-package/
